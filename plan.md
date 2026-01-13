@@ -12,7 +12,7 @@
         "Create app/routes/main.py with all page routes",
         "Create app.py entry point"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "1.2",
