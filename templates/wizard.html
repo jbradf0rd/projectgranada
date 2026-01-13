@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مرحبًا - غرناطة</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body>
+    <div class="wizard-container" x-data="wizardApp()">
+        
+        <!-- Logo/Icon -->
+        <div style="margin-bottom:24px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:64px;height:64px;margin:0 auto;display:block;color:var(--accent);">
+                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"></path>
+                <path d="M8 7h6"></path>
+                <path d="M8 11h8"></path>
+            </svg>
+        </div>
+        
+        <h1 class="wizard-title">مرحبًا بك في غرناطة</h1>
+        
+        <p class="wizard-description">
+            مكتبة عربية للكتب الإسلامية تعمل بدون إنترنت.
+            <br>
+            ابدأ بتحميل مجموعة الكتب الأساسية أو تصفح المكتبة مباشرة.
+        </p>
+        
+        <!-- Download starter books -->
+        <div class="wizard-actions">
+            <button 
+                class="btn btn-primary wizard-btn" 
+                @click="downloadStarterBooks()"
+                :disabled="downloading"
+            >
+                <template x-if="!downloading && !downloaded">
+                    <span>تحميل الكتب الأساسية (الكتب التسعة)</span>
+                </template>
+                <template x-if="downloading">
+                    <span>
+                        <div class="loading-spinner" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-left:8px;"></div>
+                        جاري التحميل... <span x-text="progress"></span>%
+                    </span>
+                </template>
+                <template x-if="downloaded">
+                    <span>✓ تم التحميل</span>
+                </template>
+            </button>
+            
+            <a href="{{ url_for('main.books') }}" class="btn wizard-btn">
+                تصفح المكتبة
+            </a>
+        </div>
+        
+        <!-- Books to download -->
+        <div x-show="showBooks" style="margin-top:24px;text-align:right;" x-cloak>
+            <p class="text-muted" style="font-size:0.85rem;margin-bottom:12px;">سيتم تحميل:</p>
+            <ul style="font-size:0.85rem;color:var(--text-secondary);">
+                <template x-for="book in starterBooks" :key="book.id">
+                    <li style="padding:4px 0;display:flex;justify-content:space-between;">
+                        <span x-text="book.title"></span>
+                        <span x-show="book.downloaded" style="color:var(--success);">✓</span>
+                    </li>
+                </template>
+            </ul>
+        </div>
+        
+        <!-- Skip -->
+        <a href="{{ url_for('main.search') }}" class="wizard-skip">
+            تخطي والبدء بدون تحميل
+        </a>
+        
+        <!-- Note about OpenITI -->
+        <p style="margin-top:48px;font-size:0.75rem;color:var(--text-muted);">
+            الكتب مصدرها مشروع OpenITI للنصوص الإسلامية المفتوحة
+        </p>
+    </div>
+    
+    <script>
+    function wizardApp() {
+        return {
+            downloading: false,
+            downloaded: false,
+            progress: 0,
+            showBooks: false,
+            
+            starterBooks: [
+                { id: 'bukhari', title: 'صحيح البخاري', downloaded: false },
+                { id: 'muslim', title: 'صحيح مسلم', downloaded: false },
+                { id: 'abudawud', title: 'سنن أبي داود', downloaded: false },
+                { id: 'tirmidhi', title: 'سنن الترمذي', downloaded: false },
+                { id: 'nasai', title: 'سنن النسائي', downloaded: false },
+                { id: 'ibnmajah', title: 'سنن ابن ماجه', downloaded: false },
+                { id: 'malik', title: 'موطأ مالك', downloaded: false },
+                { id: 'ahmad', title: 'مسند أحمد', downloaded: false },
+                { id: 'darimi', title: 'سنن الدارمي', downloaded: false },
+            ],
+            
+            async downloadStarterBooks() {
+                this.downloading = true;
+                this.showBooks = true;
+                
+                for (let i = 0; i < this.starterBooks.length; i++) {
+                    const book = this.starterBooks[i];
+                    
+                    try {
+                        // Simulate download - replace with actual API call
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        // await fetch('/api/openiti/books/' + book.id + '/download', { method: 'POST' });
+                        
+                        book.downloaded = true;
+                        this.progress = Math.round(((i + 1) / this.starterBooks.length) * 100);
+                    } catch (error) {
+                        console.error('Failed to download:', book.title, error);
+                    }
+                }
+                
+                this.downloading = false;
+                this.downloaded = true;
+                
+                // Mark wizard as complete
+                localStorage.setItem('wizardComplete', 'true');
+                
+                // Redirect after short delay
+                setTimeout(() => {
+                    window.location.href = '/search';
+                }, 1500);
+            }
+        };
+    }
+    </script>
+</body>
+</html>

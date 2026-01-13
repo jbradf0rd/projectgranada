@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}كتب - غرناطة{% endblock %}
+
+{% block content %}
+<div x-data="booksApp()" x-init="init()">
+    
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab" :class="{ 'active': activeTab === 'my' }" @click="activeTab = 'my'">
+            كتبي
+        </button>
+        <button class="tab" :class="{ 'active': activeTab === 'openiti' }" @click="activeTab = 'openiti'">
+            مكتبة OpenITI
+        </button>
+        <button class="tab" :class="{ 'active': activeTab === 'upload' }" @click="activeTab = 'upload'">
+            رفع كتاب
+        </button>
+    </div>
+    
+    <!-- My Books Tab -->
+    <div x-show="activeTab === 'my'">
+        <!-- Search -->
+        <div class="search-input-cont mb-4">
+            <div class="search-flex">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    placeholder="أدخل اسم الكتاب..."
+                    x-model="myBooksSearch"
+                >
+                <button class="search-btn" title="ترتيب النتائج">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="4" y1="6" x2="20" y2="6"></line>
+                        <line x1="4" y1="12" x2="14" y2="12"></line>
+                        <line x1="4" y1="18" x2="8" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Books count -->
+        <div class="results-count">
+            عدد الكتب: <span x-text="filteredMyBooks.length"></span>
+        </div>
+        
+        <!-- Books list -->
+        <div class="loading-state" x-show="loading" x-cloak>
+            <div class="loading-spinner"></div>
+            جاري التحميل...
+        </div>
+        
+        <div class="empty-state" x-show="!loading && myBooks.length === 0">
+            لا توجد كتب محملة
+        </div>
+        
+        <template x-for="book in filteredMyBooks" :key="book.id">
+            <div class="book-item">
+                <div class="book-title">
+                    <template x-if="book.is_owned">
+                        <span class="book-owned-badge">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;">
+                                <path d="M20 6 9 17l-5-5"></path>
+                            </svg>
+                            مملوك
+                        </span>
+                    </template>
+                    <a :href="'/book/' + book.id" x-text="book.title"></a>
+                </div>
+                <div class="book-info">
+                    <div class="book-meta">
+                        <a :href="'/author/' + book.author_id" x-text="book.author"></a>
+                        <template x-if="book.death_date">
+                            <span> (ت <span x-text="book.death_date"></span>)</span>
+                        </template>
+                        <span class="bullet-sep">·</span>
+                        <a :href="'/category/' + book.category_id" x-text="book.category"></a>
+                        <span class="bullet-sep">·</span>
+                        <span class="book-size" x-text="formatSize(book.file_size)"></span>
+                    </div>
+                    <div class="book-actions">
+                        <button @click="toggleOwned(book)" title="تبديل حالة الملكية">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 6 9 17l-5-5"></path>
+                            </svg>
+                        </button>
+                        <button @click="deleteBook(book)" title="حذف الكتاب">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                        <button @click="showBookInfo(book)" title="معلومات عن الكتاب">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                                <path d="M12 17h.01"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+    
+    <!-- OpenITI Tab -->
+    <div x-show="activeTab === 'openiti'" x-cloak>
+        <!-- Search -->
+        <div class="search-input-cont mb-4">
+            <div class="search-flex">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    placeholder="ابحث في مكتبة OpenITI..."
+                    x-model="openITISearch"
+                    @keyup.enter="searchOpenITI()"
+                >
+                <button class="search-btn" @click="searchOpenITI()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.34-4.34"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Results count -->
+        <div class="results-count">
+            عدد الكتب: <span x-text="openITIBooks.length"></span>
+        </div>
+        
+        <!-- Books list -->
+        <div class="loading-state" x-show="openITILoading" x-cloak>
+            <div class="loading-spinner"></div>
+            جاري البحث...
+        </div>
+        
+        <template x-for="book in openITIBooks" :key="book.id">
+            <div class="book-item">
+                <div class="book-title" x-text="book.title"></div>
+                <div class="book-info">
+                    <div class="book-meta">
+                        <span x-text="book.author"></span>
+                        <template x-if="book.death_date">
+                            <span> (ت <span x-text="book.death_date"></span>)</span>
+                        </template>
+                        <span class="bullet-sep">·</span>
+                        <span x-text="book.category"></span>
+                        <span class="bullet-sep">·</span>
+                        <span class="book-size" x-text="formatSize(book.file_size)"></span>
+                    </div>
+                    <div class="book-actions">
+                        <button 
+                            @click="downloadBook(book)" 
+                            :disabled="book.downloading"
+                            title="تحميل الكتاب"
+                        >
+                            <template x-if="book.downloading">
+                                <div class="loading-spinner" style="width:18px;height:18px;margin:0;"></div>
+                            </template>
+                            <template x-if="!book.downloading">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="7 10 12 15 17 10"></polyline>
+                                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                                </svg>
+                            </template>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+    
+    <!-- Upload Tab -->
+    <div x-show="activeTab === 'upload'" x-cloak>
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:48px;height:48px;margin:0 auto 16px;display:block;opacity:0.5;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <p class="mb-4">ارفع كتابًا من جهازك (PDF أو نص)</p>
+            <input type="file" id="book-upload" accept=".pdf,.txt,.md" style="display:none" @change="handleUpload($event)">
+            <label for="book-upload" class="btn btn-primary" style="cursor:pointer;">
+                اختر ملفًا
+            </label>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function booksApp() {
+    return {
+        activeTab: 'my',
+        
+        // My books
+        myBooks: [],
+        myBooksSearch: '',
+        loading: true,
+        
+        // OpenITI
+        openITIBooks: [],
+        openITISearch: '',
+        openITILoading: false,
+        
+        init() {
+            this.loadMyBooks();
+        },
+        
+        async loadMyBooks() {
+            this.loading = true;
+            try {
+                const response = await fetch('/api/books');
+                const data = await response.json();
+                this.myBooks = data.books || [];
+            } catch (error) {
+                console.error('Failed to load books:', error);
+                // Sample data
+                this.myBooks = [
+                    { id: '1', title: 'صحيح البخاري', author: 'البخاري', author_id: '1', death_date: '256', category: 'كتب السنة', category_id: '6', file_size: 52428800, is_owned: true },
+                    { id: '2', title: 'صحيح مسلم', author: 'مسلم بن الحجاج', author_id: '2', death_date: '261', category: 'كتب السنة', category_id: '6', file_size: 41943040, is_owned: false },
+                ];
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        get filteredMyBooks() {
+            if (!this.myBooksSearch) return this.myBooks;
+            return this.myBooks.filter(b => b.title.includes(this.myBooksSearch));
+        },
+        
+        async searchOpenITI() {
+            if (!this.openITISearch) return;
+            this.openITILoading = true;
+            try {
+                const response = await fetch('/api/openiti/books?search=' + encodeURIComponent(this.openITISearch));
+                const data = await response.json();
+                this.openITIBooks = data.books || [];
+            } catch (error) {
+                console.error('Failed to search OpenITI:', error);
+            } finally {
+                this.openITILoading = false;
+            }
+        },
+        
+        async downloadBook(book) {
+            book.downloading = true;
+            try {
+                await fetch('/api/openiti/books/' + book.id + '/download', { method: 'POST' });
+                await this.loadMyBooks();
+            } catch (error) {
+                console.error('Failed to download book:', error);
+            } finally {
+                book.downloading = false;
+            }
+        },
+        
+        async deleteBook(book) {
+            if (!confirm('هل أنت متأكد من حذف هذا الكتاب؟')) return;
+            try {
+                await fetch('/api/books/' + book.id, { method: 'DELETE' });
+                this.myBooks = this.myBooks.filter(b => b.id !== book.id);
+            } catch (error) {
+                console.error('Failed to delete book:', error);
+            }
+        },
+        
+        async toggleOwned(book) {
+            try {
+                await fetch('/api/books/' + book.id + '/owned', { 
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_owned: !book.is_owned })
+                });
+                book.is_owned = !book.is_owned;
+            } catch (error) {
+                console.error('Failed to update ownership:', error);
+            }
+        },
+        
+        showBookInfo(book) {
+            alert('معلومات الكتاب: ' + book.title);
+        },
+        
+        handleUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                alert('سيتم رفع: ' + file.name);
+            }
+        },
+        
+        formatSize(bytes) {
+            if (!bytes) return '';
+            const mb = bytes / (1024 * 1024);
+            return mb.toFixed(1) + ' MB';
+        }
+    };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}أقسام - غرناطة{% endblock %}
+
+{% block content %}
+<div x-data="categoriesApp()" x-init="init()">
+    
+    <!-- Custom Categories Section (Granada) -->
+    <section class="custom-categories-section" x-show="customCategories.length > 0 || showAddCustom">
+        <div class="section-header">
+            <span class="section-title">أقسامي المخصصة</span>
+            <button class="section-add-btn" @click="showAddCustom = true">
+                + إضافة قسم
+            </button>
+        </div>
+        
+        <!-- Add custom category form -->
+        <div x-show="showAddCustom" class="mb-4" style="padding: 0 8px;">
+            <div class="flex gap-2">
+                <input 
+                    type="text" 
+                    class="form-input" 
+                    placeholder="اسم القسم الجديد..."
+                    x-model="newCategoryName"
+                    @keyup.enter="addCustomCategory()"
+                    style="flex:1;"
+                >
+                <button class="btn btn-primary" @click="addCustomCategory()">إضافة</button>
+                <button class="btn" @click="showAddCustom = false; newCategoryName = ''">إلغاء</button>
+            </div>
+        </div>
+        
+        <!-- Custom categories list -->
+        <template x-for="cat in customCategories" :key="cat.id">
+            <div class="category-item">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <a :href="'/category/custom/' + cat.id">
+                        <span class="category-name" x-text="cat.name"></span>
+                    </a>
+                    <div class="flex items-center gap-2">
+                        <span class="category-count" x-text="cat.book_count || 0"></span>
+                        <button @click="editCustomCategory(cat)" style="color:var(--text-muted);padding:4px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;">
+                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>
+                            </svg>
+                        </button>
+                        <button @click="deleteCustomCategory(cat)" style="color:var(--danger);padding:4px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </section>
+    
+    <!-- Library Categories Section -->
+    <section>
+        <div class="section-header" x-show="customCategories.length > 0">
+            <span class="section-title">أقسام المكتبة</span>
+        </div>
+        
+        <!-- Loading -->
+        <div class="loading-state" x-show="loading" x-cloak>
+            <div class="loading-spinner"></div>
+            جاري التحميل...
+        </div>
+        
+        <!-- Categories list -->
+        <template x-for="cat in categories" :key="cat.id">
+            <div class="category-item">
+                <a :href="'/category/' + cat.id">
+                    <span class="category-name">
+                        <b x-text="cat.number + '-'"></b>
+                        <span x-text="cat.name"></span>
+                    </span>
+                    <span class="category-count" x-text="cat.book_count"></span>
+                </a>
+            </div>
+        </template>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function categoriesApp() {
+    return {
+        categories: [],
+        customCategories: [],
+        loading: true,
+        showAddCustom: false,
+        newCategoryName: '',
+        
+        async init() {
+            this.loading = true;
+            await Promise.all([
+                this.loadCategories(),
+                this.loadCustomCategories()
+            ]);
+            this.loading = false;
+        },
+        
+        async loadCategories() {
+            try {
+                const response = await fetch('/api/categories');
+                const data = await response.json();
+                this.categories = data.categories || [];
+            } catch (error) {
+                console.error('Failed to load categories:', error);
+                // Sample data with Arabic numerals
+                this.categories = [
+                    { id: 1, number: '١', name: 'العقيدة', book_count: 808 },
+                    { id: 2, number: '٢', name: 'الفرق والردود', book_count: 151 },
+                    { id: 3, number: '٣', name: 'التفسير', book_count: 272 },
+                    { id: 4, number: '٤', name: 'علوم القرآن وأصول التفسير', book_count: 310 },
+                    { id: 5, number: '٥', name: 'التجويد والقراءات', book_count: 151 },
+                    { id: 6, number: '٦', name: 'كتب السنة', book_count: 1241 },
+                    { id: 7, number: '٧', name: 'شروح الحديث', book_count: 264 },
+                    { id: 8, number: '٨', name: 'التخريج والأطراف', book_count: 129 },
+                    { id: 9, number: '٩', name: 'العلل والسؤلات الحديثية', book_count: 78 },
+                    { id: 10, number: '١٠', name: 'علوم الحديث', book_count: 320 },
+                ];
+            }
+        },
+        
+        async loadCustomCategories() {
+            try {
+                const response = await fetch('/api/custom-categories');
+                const data = await response.json();
+                this.customCategories = data.categories || [];
+            } catch (error) {
+                console.error('Failed to load custom categories:', error);
+                this.customCategories = [];
+            }
+        },
+        
+        async addCustomCategory() {
+            if (!this.newCategoryName.trim()) return;
+            
+            try {
+                const response = await fetch('/api/custom-categories', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: this.newCategoryName })
+                });
+                const data = await response.json();
+                this.customCategories.push(data.category);
+                this.newCategoryName = '';
+                this.showAddCustom = false;
+            } catch (error) {
+                console.error('Failed to add category:', error);
+                // For testing without backend
+                this.customCategories.push({
+                    id: Date.now(),
+                    name: this.newCategoryName,
+                    book_count: 0
+                });
+                this.newCategoryName = '';
+                this.showAddCustom = false;
+            }
+        },
+        
+        editCustomCategory(cat) {
+            const newName = prompt('اسم القسم الجديد:', cat.name);
+            if (newName && newName !== cat.name) {
+                cat.name = newName;
+                // TODO: Save to API
+            }
+        },
+        
+        async deleteCustomCategory(cat) {
+            if (!confirm('هل أنت متأكد من حذف هذا القسم؟')) return;
+            
+            try {
+                await fetch('/api/custom-categories/' + cat.id, { method: 'DELETE' });
+                this.customCategories = this.customCategories.filter(c => c.id !== cat.id);
+            } catch (error) {
+                console.error('Failed to delete category:', error);
+                this.customCategories = this.customCategories.filter(c => c.id !== cat.id);
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

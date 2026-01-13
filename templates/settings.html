@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}الإعدادات - غرناطة{% endblock %}
+
+{% block content %}
+<div x-data="settingsApp()" x-init="init()">
+    
+    <!-- التطبيق -->
+    <section class="settings-section">
+        <h2 class="settings-section-title">التطبيق</h2>
+        <div class="settings-card">
+            <div class="settings-item" style="cursor:pointer;" @click="shareApp()">
+                <span class="settings-item-label">شارك التطبيق</span>
+                <div class="settings-item-value">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;color:var(--accent);">
+                        <circle cx="18" cy="5" r="3"></circle>
+                        <circle cx="6" cy="12" r="3"></circle>
+                        <circle cx="18" cy="19" r="3"></circle>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                    </svg>
+                </div>
+            </div>
+            <div class="settings-item" style="cursor:pointer;" @click="showAbout = true">
+                <span class="settings-item-label">عن تطبيق «غرناطة»</span>
+                <div class="settings-item-value">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;color:var(--accent);">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                        <path d="M12 17h.01"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- التفضيلات -->
+    <section class="settings-section">
+        <h2 class="settings-section-title">التفضيلات</h2>
+        <div class="settings-card">
+            <div class="settings-item" style="cursor:pointer;" @click="toggleTheme()">
+                <span class="settings-item-label">المظهر</span>
+                <div class="settings-item-value">
+                    <svg x-show="theme === 'dark'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px;color:#f59e0b;">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M12 2v2"></path>
+                        <path d="M12 20v2"></path>
+                        <path d="m4.93 4.93 1.41 1.41"></path>
+                        <path d="m17.66 17.66 1.41 1.41"></path>
+                        <path d="M2 12h2"></path>
+                        <path d="M20 12h2"></path>
+                        <path d="m6.34 17.66-1.41 1.41"></path>
+                        <path d="m19.07 4.93-1.41 1.41"></path>
+                    </svg>
+                    <svg x-show="theme === 'light'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px;color:#6366f1;" x-cloak>
+                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+                    </svg>
+                </div>
+            </div>
+            <div class="settings-item">
+                <span class="settings-item-label">إبقاء الشاشة مضاءة</span>
+                <label class="toggle">
+                    <input type="checkbox" x-model="settings.keepScreenOn" @change="saveSettings()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            <div class="settings-item">
+                <span class="settings-item-label">فتح صفحة البحث أولًا</span>
+                <label class="toggle">
+                    <input type="checkbox" x-model="settings.openSearchFirst" @change="saveSettings()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+        </div>
+    </section>
+    
+    <!-- الذكاء الاصطناعي (Granada) -->
+    <section class="settings-section">
+        <h2 class="settings-section-title">الذكاء الاصطناعي</h2>
+        <div class="settings-card">
+            <div class="settings-item">
+                <span class="settings-item-label">مزود الذكاء الاصطناعي</span>
+                <div class="settings-item-value">
+                    <select 
+                        x-model="settings.aiProvider" 
+                        @change="saveSettings()"
+                        style="background:var(--bg-color);border:1px solid var(--border-color);padding:4px 8px;border-radius:4px;"
+                    >
+                        <option value="none">غير مفعل</option>
+                        <option value="claude">Claude (Anthropic)</option>
+                        <option value="ollama">Ollama (محلي)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Claude settings -->
+            <template x-if="settings.aiProvider === 'claude'">
+                <div class="settings-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+                    <span class="settings-item-label">مفتاح Claude API</span>
+                    <input 
+                        type="password" 
+                        class="form-input" 
+                        placeholder="sk-ant-..."
+                        x-model="settings.claudeApiKey"
+                        @change="saveSettings()"
+                    >
+                </div>
+            </template>
+            
+            <!-- Ollama settings -->
+            <template x-if="settings.aiProvider === 'ollama'">
+                <div>
+                    <div class="settings-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+                        <span class="settings-item-label">عنوان خادم Ollama</span>
+                        <input 
+                            type="text" 
+                            class="form-input" 
+                            placeholder="http://localhost:11434"
+                            x-model="settings.ollamaUrl"
+                            @change="saveSettings()"
+                        >
+                    </div>
+                    <div class="settings-item" style="flex-direction:column;align-items:stretch;gap:8px;">
+                        <span class="settings-item-label">النموذج</span>
+                        <input 
+                            type="text" 
+                            class="form-input" 
+                            placeholder="llama2, mistral, etc."
+                            x-model="settings.ollamaModel"
+                            @change="saveSettings()"
+                        >
+                    </div>
+                </div>
+            </template>
+        </div>
+    </section>
+    
+    <!-- البيانات والتخزين -->
+    <section class="settings-section">
+        <h2 class="settings-section-title">البيانات والتخزين</h2>
+        <div class="settings-card">
+            <div class="settings-item">
+                <span class="settings-item-label">حجم البيانات</span>
+                <div class="settings-item-value">
+                    <code x-text="dataSize"></code>
+                    <button class="btn btn-danger" @click="clearData()">مسح البيانات</button>
+                </div>
+            </div>
+            <div class="settings-item">
+                <span class="settings-item-label">تصدير بيانات الاستخدام</span>
+                <div class="settings-item-value">
+                    <button class="btn" @click="exportData()">تصدير البيانات</button>
+                </div>
+            </div>
+            <div class="settings-item">
+                <span class="settings-item-label">استيراد بيانات الاستخدام</span>
+                <div class="settings-item-value">
+                    <input type="file" id="import-data" accept=".json" style="display:none" @change="importData($event)">
+                    <label for="import-data" class="btn" style="cursor:pointer;">اختر الملف</label>
+                </div>
+            </div>
+            <div class="settings-item">
+                <span class="settings-item-label">إصدار</span>
+                <div class="settings-item-value">
+                    <code>1.0.0</code>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- About Modal -->
+    <div class="modal-overlay" x-show="showAbout" @click.self="showAbout = false" x-cloak>
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">عن غرناطة</span>
+                <button class="modal-close" @click="showAbout = false">×</button>
+            </div>
+            <div class="modal-body text-center">
+                <h2 style="font-size:1.5rem;margin-bottom:8px;">غرناطة</h2>
+                <p class="text-muted" style="margin-bottom:16px;">مكتبة عربية للكتب الإسلامية</p>
+                <p style="font-size:0.85rem;line-height:1.8;">
+                    تطبيق مفتوح المصدر للبحث في الكتب العربية والإسلامية.
+                    مبني على مكتبة OpenITI ومستوحى من تطبيق تراث.
+                </p>
+                <div style="margin-top:24px;">
+                    <a href="https://github.com" target="_blank" class="btn">
+                        المصدر على GitHub
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function settingsApp() {
+    return {
+        theme: 'dark',
+        dataSize: '0 MB',
+        showAbout: false,
+        
+        settings: {
+            keepScreenOn: false,
+            openSearchFirst: true,
+            aiProvider: 'none',
+            claudeApiKey: '',
+            ollamaUrl: 'http://localhost:11434',
+            ollamaModel: 'llama2'
+        },
+        
+        init() {
+            this.loadSettings();
+            this.calculateDataSize();
+        },
+        
+        loadSettings() {
+            try {
+                const saved = localStorage.getItem('granadaSettings');
+                if (saved) {
+                    this.settings = { ...this.settings, ...JSON.parse(saved) };
+                }
+                this.theme = localStorage.getItem('theme') || 'dark';
+            } catch (error) {
+                console.error('Failed to load settings:', error);
+            }
+        },
+        
+        saveSettings() {
+            try {
+                localStorage.setItem('granadaSettings', JSON.stringify(this.settings));
+            } catch (error) {
+                console.error('Failed to save settings:', error);
+            }
+        },
+        
+        toggleTheme() {
+            this.theme = this.theme === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('theme', this.theme);
+            document.documentElement.classList.toggle('dark', this.theme === 'dark');
+            document.documentElement.classList.toggle('light', this.theme === 'light');
+        },
+        
+        calculateDataSize() {
+            // Estimate localStorage size
+            let total = 0;
+            for (let key in localStorage) {
+                if (localStorage.hasOwnProperty(key)) {
+                    total += localStorage[key].length * 2; // UTF-16
+                }
+            }
+            const mb = total / (1024 * 1024);
+            this.dataSize = mb.toFixed(1) + ' MB';
+        },
+        
+        shareApp() {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'غرناطة',
+                    text: 'مكتبة عربية للكتب الإسلامية',
+                    url: window.location.origin
+                });
+            } else {
+                navigator.clipboard.writeText(window.location.origin);
+                alert('تم نسخ الرابط');
+            }
+        },
+        
+        clearData() {
+            if (!confirm('هل أنت متأكد من مسح جميع البيانات؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+            localStorage.clear();
+            location.reload();
+        },
+        
+        exportData() {
+            const data = {
+                settings: this.settings,
+                searchHistory: JSON.parse(localStorage.getItem('searchHistory') || '[]'),
+                // Add more data as needed
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'granada-backup.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        },
+        
+        importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.settings) {
+                        this.settings = { ...this.settings, ...data.settings };
+                        this.saveSettings();
+                    }
+                    if (data.searchHistory) {
+                        localStorage.setItem('searchHistory', JSON.stringify(data.searchHistory));
+                    }
+                    alert('تم استيراد البيانات بنجاح');
+                    location.reload();
+                } catch (error) {
+                    alert('فشل استيراد البيانات: ملف غير صالح');
+                }
+            };
+            reader.readAsText(file);
+        }
+    };
+}
+</script>
+{% endblock %}

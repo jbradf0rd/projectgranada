@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}مؤلفون - غرناطة{% endblock %}
+
+{% block content %}
+<div x-data="authorsApp()" x-init="init()">
+    
+    <!-- Search -->
+    <div class="search-input-cont mb-4">
+        <div class="search-flex">
+            <input 
+                type="text" 
+                class="search-input" 
+                placeholder="أدخل اسم المؤلف..."
+                x-model="search"
+            >
+        </div>
+    </div>
+    
+    <!-- Authors count -->
+    <div class="results-count">
+        عدد المؤلفين: <span x-text="filteredAuthors.length"></span>
+    </div>
+    
+    <!-- Loading -->
+    <div class="loading-state" x-show="loading" x-cloak>
+        <div class="loading-spinner"></div>
+        جاري التحميل...
+    </div>
+    
+    <!-- Empty -->
+    <div class="empty-state" x-show="!loading && authors.length === 0">
+        لا يوجد مؤلفون
+    </div>
+    
+    <!-- Authors list -->
+    <template x-for="author in filteredAuthors" :key="author.id">
+        <a :href="'/author/' + author.id" class="author-item">
+            <span class="author-name">
+                <span x-text="author.name"></span>
+                <template x-if="author.death_date">
+                    <span class="author-death"> (ت <span x-text="author.death_date"></span> هـ)</span>
+                </template>
+            </span>
+            <span class="author-book-count" x-text="author.book_count"></span>
+        </a>
+    </template>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function authorsApp() {
+    return {
+        authors: [],
+        search: '',
+        loading: true,
+        
+        async init() {
+            this.loading = true;
+            try {
+                const response = await fetch('/api/authors');
+                const data = await response.json();
+                this.authors = data.authors || [];
+            } catch (error) {
+                console.error('Failed to load authors:', error);
+                // Sample data
+                this.authors = [
+                    { id: '1', name: 'عمرو بن قميئة', death_date: '81 قبل', book_count: 1 },
+                    { id: '2', name: 'امرؤ القيس', death_date: '80 قبل', book_count: 2 },
+                    { id: '3', name: 'البخاري', death_date: '256', book_count: 5 },
+                    { id: '4', name: 'مسلم بن الحجاج', death_date: '261', book_count: 3 },
+                    { id: '5', name: 'ابن تيمية', death_date: '728', book_count: 45 },
+                    { id: '6', name: 'ابن القيم', death_date: '751', book_count: 32 },
+                ];
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        get filteredAuthors() {
+            if (!this.search) return this.authors;
+            return this.authors.filter(a => a.name.includes(this.search));
+        }
+    };
+}
+</script>
+{% endblock %}

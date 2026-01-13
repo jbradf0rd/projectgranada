@@ -1,0 +1,534 @@
+{% extends "base.html" %}
+
+{% block title %}بحث - غرناطة{% endblock %}
+
+{% block content %}
+<div x-data="searchApp()" x-init="init()">
+    
+    <!-- Search Input Container -->
+    <section class="search-input-cont">
+        <div class="search-flex">
+            <input 
+                type="text" 
+                class="search-input" 
+                placeholder="كلمات البحث..."
+                x-model="query"
+                @keyup.enter="doSearch()"
+                minlength="2"
+            >
+            
+            <!-- History -->
+            <div class="popover-anchor">
+                <button class="search-btn" @click="togglePopover('history')" title="بحوث سابقة">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                </button>
+                
+                <div class="popover popover-right" x-show="activePopover === 'history'" @click.outside="activePopover = null" x-cloak>
+                    <div class="popover-title">بحوث سابقة</div>
+                    <template x-for="h in history" :key="h">
+                        <button class="popover-item" @click="query = h; doSearch()">
+                            <span x-text="h"></span>
+                        </button>
+                    </template>
+                    <div x-show="history.length === 0" class="popover-empty">لا يوجد تاريخ</div>
+                    <template x-if="history.length > 0">
+                        <div>
+                            <div class="popover-divider"></div>
+                            <button class="popover-item danger" @click="clearHistory()">مسح التاريخ</button>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            
+            <!-- Filter -->
+            <div class="popover-anchor">
+                <button class="search-btn" @click="togglePopover('filter')" title="تصفية البحث">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                    </svg>
+                </button>
+                
+                <div class="popover popover-right" x-show="activePopover === 'filter'" @click.outside="activePopover = null" x-cloak style="width: 280px;">
+                    <div class="popover-title">تصفية</div>
+                    
+                    <!-- Book filter -->
+                    <button 
+                        class="popover-section-btn" 
+                        :class="{ 'open': filterSection === 'book' }"
+                        @click="filterSection = filterSection === 'book' ? null : 'book'"
+                    >
+                        <span>
+                            الكتاب
+                            <span class="count" x-show="selectedBooks.length > 0">(<span x-text="selectedBooks.length"></span>)</span>
+                        </span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                    <div class="popover-section-content" x-show="filterSection === 'book'" x-cloak>
+                        <input type="search" class="popover-search" placeholder="كلمات البحث" x-model="bookSearch">
+                        <div class="popover-checkboxes">
+                            <template x-for="book in filteredBooks" :key="book.id">
+                                <button class="checkbox-item" @click="toggleBook(book.id)">
+                                    <input type="checkbox" :checked="selectedBooks.includes(book.id)">
+                                    <span x-text="book.title"></span>
+                                </button>
+                            </template>
+                            <div x-show="books.length === 0" class="popover-empty">لا توجد كتب</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Author filter -->
+                    <button 
+                        class="popover-section-btn"
+                        :class="{ 'open': filterSection === 'author' }"
+                        @click="filterSection = filterSection === 'author' ? null : 'author'"
+                    >
+                        <span>
+                            المؤلف
+                            <span class="count" x-show="selectedAuthors.length > 0">(<span x-text="selectedAuthors.length"></span>)</span>
+                        </span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                    <div class="popover-section-content" x-show="filterSection === 'author'" x-cloak>
+                        <input type="search" class="popover-search" placeholder="اسم المؤلف..." x-model="authorSearch">
+                        <div class="popover-checkboxes">
+                            <template x-for="author in filteredAuthors" :key="author.id">
+                                <button class="checkbox-item" @click="toggleAuthor(author.id)">
+                                    <input type="checkbox" :checked="selectedAuthors.includes(author.id)">
+                                    <span x-text="author.name"></span>
+                                </button>
+                            </template>
+                            <div x-show="authors.length === 0" class="popover-empty">لا يوجد مؤلفون</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Category filter -->
+                    <button 
+                        class="popover-section-btn"
+                        :class="{ 'open': filterSection === 'category' }"
+                        @click="filterSection = filterSection === 'category' ? null : 'category'"
+                    >
+                        <span>
+                            القسم
+                            <span class="count" x-show="selectedCategories.length > 0">(<span x-text="selectedCategories.length"></span>)</span>
+                        </span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                    </button>
+                    <div class="popover-section-content" x-show="filterSection === 'category'" x-cloak>
+                        <div class="popover-checkboxes">
+                            <template x-for="cat in categories" :key="cat.id">
+                                <button class="checkbox-item" @click="toggleCategory(cat.id)">
+                                    <input type="checkbox" :checked="selectedCategories.includes(cat.id)">
+                                    <span x-text="cat.name"></span>
+                                </button>
+                            </template>
+                            <div x-show="categories.length === 0" class="popover-empty">لا توجد أقسام</div>
+                        </div>
+                    </div>
+                    
+                    <div class="popover-divider"></div>
+                    
+                    <button class="checkbox-item" @click="searchInMargins = !searchInMargins">
+                        <input type="checkbox" :checked="searchInMargins">
+                        <span>بحث في الهامش والمقدمات</span>
+                    </button>
+                    
+                    <!-- Granada: My library only -->
+                    <button class="checkbox-item" @click="myLibraryOnly = !myLibraryOnly">
+                        <input type="checkbox" :checked="myLibraryOnly">
+                        <span>في مكتبتي فقط</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Sort -->
+            <div class="popover-anchor">
+                <button class="search-btn" @click="togglePopover('sort')" title="ترتيب النتائج">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="4" y1="6" x2="20" y2="6"></line>
+                        <line x1="4" y1="12" x2="14" y2="12"></line>
+                        <line x1="4" y1="18" x2="8" y2="18"></line>
+                    </svg>
+                </button>
+                
+                <div class="popover popover-right" x-show="activePopover === 'sort'" @click.outside="activePopover = null" x-cloak>
+                    <button class="popover-item" :class="{ 'active': sortBy === 'relevance' }" @click="sortBy = 'relevance'">
+                        حسب أقرب صلة لكلمات البحث
+                    </button>
+                    <button class="popover-item" :class="{ 'active': sortBy === 'death' }" @click="sortBy = 'death'">
+                        حسب وفاة المؤلف
+                    </button>
+                    <button class="popover-item" :class="{ 'active': sortBy === 'book' }" @click="sortBy = 'book'">
+                        حسب ترتيب الكتاب
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Settings -->
+            <div class="popover-anchor">
+                <button class="search-btn" @click="togglePopover('settings')" title="خيارات البحث">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                    </svg>
+                </button>
+                
+                <div class="popover popover-right" x-show="activePopover === 'settings'" @click.outside="activePopover = null" x-cloak>
+                    <div class="popover-title">دقة البحث</div>
+                    <button class="popover-item" :class="{ 'active': precision === 'some' }" @click="precision = 'some'">
+                        بعض الكلمات
+                    </button>
+                    <button class="popover-item" :class="{ 'active': precision === 'all' }" @click="precision = 'all'">
+                        كل الكلمات
+                    </button>
+                    <button class="popover-item" :class="{ 'active': precision === 'exact' }" @click="precision = 'exact'">
+                        كل الكلمات متتالية
+                    </button>
+                    <div class="popover-divider"></div>
+                    <button class="checkbox-item" @click="normalize = !normalize">
+                        <input type="checkbox" :checked="normalize">
+                        <span>تبسيط كلمات البحث</span>
+                    </button>
+                    <button class="checkbox-item" @click="showFull = !showFull">
+                        <input type="checkbox" :checked="showFull">
+                        <span>إظهار كل نتيجة بتمامها</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Active Filter Tags -->
+        <ul class="active-filters" x-show="hasActiveFilters()" x-cloak>
+            <!-- Books filter tag -->
+            <template x-if="selectedBooks.length > 0">
+                <li class="filter-tag">
+                    <button class="filter-tag-remove" @click="selectedBooks = []">×</button>
+                    <div class="popover-anchor">
+                        <button class="filter-tag-btn" @click="toggleTagPopover('books')">
+                            الكتاب
+                            <span class="count">(<span x-text="selectedBooks.length"></span>)</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        
+                        <div class="popover" x-show="activeTagPopover === 'books'" @click.outside="activeTagPopover = null" x-cloak>
+                            <input type="search" class="popover-search" placeholder="كلمات البحث" x-model="bookSearch" style="margin: 8px;">
+                            <div class="popover-checkboxes" style="padding: 0 8px 8px;">
+                                <template x-for="book in filteredBooks" :key="book.id">
+                                    <button class="checkbox-item" @click="toggleBook(book.id)">
+                                        <input type="checkbox" :checked="selectedBooks.includes(book.id)">
+                                        <span x-text="book.title"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+            </template>
+            
+            <!-- Authors filter tag -->
+            <template x-if="selectedAuthors.length > 0">
+                <li class="filter-tag">
+                    <button class="filter-tag-remove" @click="selectedAuthors = []">×</button>
+                    <div class="popover-anchor">
+                        <button class="filter-tag-btn" @click="toggleTagPopover('authors')">
+                            المؤلف
+                            <span class="count">(<span x-text="selectedAuthors.length"></span>)</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        
+                        <div class="popover" x-show="activeTagPopover === 'authors'" @click.outside="activeTagPopover = null" x-cloak>
+                            <input type="search" class="popover-search" placeholder="اسم المؤلف" x-model="authorSearch" style="margin: 8px;">
+                            <div class="popover-checkboxes" style="padding: 0 8px 8px;">
+                                <template x-for="author in filteredAuthors" :key="author.id">
+                                    <button class="checkbox-item" @click="toggleAuthor(author.id)">
+                                        <input type="checkbox" :checked="selectedAuthors.includes(author.id)">
+                                        <span x-text="author.name"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+            </template>
+            
+            <!-- Categories filter tag -->
+            <template x-if="selectedCategories.length > 0">
+                <li class="filter-tag">
+                    <button class="filter-tag-remove" @click="selectedCategories = []">×</button>
+                    <div class="popover-anchor">
+                        <button class="filter-tag-btn" @click="toggleTagPopover('categories')">
+                            القسم
+                            <span class="count">(<span x-text="selectedCategories.length"></span>)</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        
+                        <div class="popover" x-show="activeTagPopover === 'categories'" @click.outside="activeTagPopover = null" x-cloak>
+                            <div class="popover-checkboxes" style="padding: 8px;">
+                                <template x-for="cat in categories" :key="cat.id">
+                                    <button class="checkbox-item" @click="toggleCategory(cat.id)">
+                                        <input type="checkbox" :checked="selectedCategories.includes(cat.id)">
+                                        <span x-text="cat.name"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </li>
+            </template>
+        </ul>
+    </section>
+    
+    <!-- Results Count -->
+    <div class="results-count">
+        عدد النتائج: <span x-text="results.length">٠</span>
+    </div>
+    
+    <!-- Search Results -->
+    <div class="search-results">
+        <!-- Loading State -->
+        <div class="loading-state" x-show="loading" x-cloak>
+            <div class="loading-spinner"></div>
+            جاري البحث...
+        </div>
+        
+        <!-- Empty State -->
+        <div class="empty-state" x-show="!loading && !query">
+            أدخل كلمات البحث للبدء
+        </div>
+        
+        <!-- No Results -->
+        <div class="empty-state" x-show="!loading && query && results.length === 0" x-cloak>
+            لا توجد نتائج
+        </div>
+        
+        <!-- Results List -->
+        <template x-for="result in results" :key="result.id">
+            <a :href="'/book/' + result.book_id + '?page=' + result.page" class="result-item">
+                <div class="result-title" x-text="result.book_title"></div>
+                <div class="result-meta">
+                    <span x-text="result.author"></span>
+                    <template x-if="result.death_date">
+                        <span> (ت <span x-text="result.death_date"></span>)</span>
+                    </template>
+                    <span> · </span>
+                    <span x-text="result.category"></span>
+                </div>
+                <div class="result-snippet" x-html="result.snippet"></div>
+                <div class="result-page">صفحة <span x-text="result.page"></span></div>
+            </a>
+        </template>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function searchApp() {
+    return {
+        // Search state
+        query: '',
+        precision: 'all',
+        normalize: true,
+        showFull: false,
+        sortBy: 'relevance',
+        searchInMargins: false,
+        myLibraryOnly: false,
+        
+        // Filter selections
+        selectedBooks: [],
+        selectedAuthors: [],
+        selectedCategories: [],
+        
+        // Filter search
+        bookSearch: '',
+        authorSearch: '',
+        
+        // Data
+        books: [],
+        authors: [],
+        categories: [],
+        results: [],
+        history: [],
+        
+        // UI state
+        activePopover: null,
+        activeTagPopover: null,
+        filterSection: null,
+        loading: false,
+        
+        // Initialization
+        init() {
+            this.loadFilters();
+            this.loadHistory();
+        },
+        
+        // Load filter options from API
+        async loadFilters() {
+            try {
+                const response = await fetch('/api/filters');
+                const data = await response.json();
+                this.books = data.books || [];
+                this.authors = data.authors || [];
+                this.categories = data.categories || [];
+            } catch (error) {
+                console.error('Failed to load filters:', error);
+                // Use sample data for testing
+                this.books = [
+                    { id: '1', title: 'صحيح البخاري' },
+                    { id: '2', title: 'صحيح مسلم' },
+                    { id: '3', title: 'سنن أبي داود' },
+                ];
+                this.authors = [
+                    { id: '1', name: 'البخاري' },
+                    { id: '2', name: 'مسلم بن الحجاج' },
+                ];
+                this.categories = [
+                    { id: '1', name: 'كتب السنة' },
+                    { id: '2', name: 'العقيدة' },
+                ];
+            }
+        },
+        
+        // Load search history from localStorage
+        loadHistory() {
+            try {
+                this.history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+            } catch {
+                this.history = [];
+            }
+        },
+        
+        // Save search to history
+        saveToHistory(query) {
+            if (!query || this.history.includes(query)) return;
+            this.history.unshift(query);
+            this.history = this.history.slice(0, 20);
+            localStorage.setItem('searchHistory', JSON.stringify(this.history));
+        },
+        
+        // Clear history
+        clearHistory() {
+            this.history = [];
+            localStorage.removeItem('searchHistory');
+            this.activePopover = null;
+        },
+        
+        // Filtered books based on search
+        get filteredBooks() {
+            if (!this.bookSearch) return this.books;
+            return this.books.filter(b => b.title.includes(this.bookSearch));
+        },
+        
+        // Filtered authors based on search
+        get filteredAuthors() {
+            if (!this.authorSearch) return this.authors;
+            return this.authors.filter(a => a.name.includes(this.authorSearch));
+        },
+        
+        // Toggle popover
+        togglePopover(name) {
+            this.activePopover = this.activePopover === name ? null : name;
+            this.activeTagPopover = null;
+            this.filterSection = null;
+        },
+        
+        // Toggle tag popover
+        toggleTagPopover(name) {
+            this.activeTagPopover = this.activeTagPopover === name ? null : name;
+            this.activePopover = null;
+        },
+        
+        // Toggle book selection
+        toggleBook(id) {
+            const index = this.selectedBooks.indexOf(id);
+            if (index === -1) {
+                this.selectedBooks.push(id);
+            } else {
+                this.selectedBooks.splice(index, 1);
+            }
+        },
+        
+        // Toggle author selection
+        toggleAuthor(id) {
+            const index = this.selectedAuthors.indexOf(id);
+            if (index === -1) {
+                this.selectedAuthors.push(id);
+            } else {
+                this.selectedAuthors.splice(index, 1);
+            }
+        },
+        
+        // Toggle category selection
+        toggleCategory(id) {
+            const index = this.selectedCategories.indexOf(id);
+            if (index === -1) {
+                this.selectedCategories.push(id);
+            } else {
+                this.selectedCategories.splice(index, 1);
+            }
+        },
+        
+        // Check if any filters are active
+        hasActiveFilters() {
+            return this.selectedBooks.length > 0 || 
+                   this.selectedAuthors.length > 0 || 
+                   this.selectedCategories.length > 0;
+        },
+        
+        // Perform search
+        async doSearch() {
+            if (!this.query.trim()) return;
+            
+            this.loading = true;
+            this.activePopover = null;
+            this.activeTagPopover = null;
+            
+            this.saveToHistory(this.query);
+            
+            try {
+                const params = new URLSearchParams({ q: this.query });
+                if (this.selectedBooks.length) params.set('books', this.selectedBooks.join(','));
+                if (this.selectedAuthors.length) params.set('authors', this.selectedAuthors.join(','));
+                if (this.selectedCategories.length) params.set('categories', this.selectedCategories.join(','));
+                if (this.myLibraryOnly) params.set('my_library', '1');
+                
+                const response = await fetch('/api/search?' + params);
+                const data = await response.json();
+                this.results = data.results || [];
+            } catch (error) {
+                console.error('Search failed:', error);
+                // Sample results for testing
+                this.results = [
+                    {
+                        id: '1',
+                        book_id: '1',
+                        book_title: 'صحيح البخاري',
+                        author: 'البخاري',
+                        death_date: '256',
+                        category: 'كتب السنة',
+                        page: 45,
+                        snippet: 'حدثنا عبد الله بن يوسف قال أخبرنا مالك عن نافع عن <mark>ابن عمر</mark> أن رسول الله صلى الله عليه وسلم...'
+                    }
+                ];
+            } finally {
+                this.loading = false;
+            }
+        }
+    };
+}
+</script>
+{% endblock %}
