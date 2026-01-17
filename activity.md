@@ -1,4 +1,4 @@
-# Granada v2 Activity Log
+# Project Granada Activity Log
 
 ---
 
