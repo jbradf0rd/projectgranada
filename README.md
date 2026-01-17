@@ -26,7 +26,7 @@ Granada is a desktop application for managing and reading Arabic Islamic texts o
 
 ### Option 1: Download Release (Recommended)
 
-1. Download the latest `Granada.exe` from [Releases](../../releases)
+1. Download the latest release from [GitHub Releases](https://github.com/jbradf0rd/projectgranada/releases)
 2. Run the executable - no installation required
 3. On first run, optionally download starter books
 
@@ -34,7 +34,7 @@ Granada is a desktop application for managing and reading Arabic Islamic texts o
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/granada.git
+git clone https://github.com/jbradf0rd/projectgranada.git
 cd granada
 
 # Create virtual environment
@@ -264,7 +264,7 @@ Contributions are welcome! Please:
 
 ```bash
 # Clone your fork
-git clone https://github.com/yourusername/granada.git
+git clone https://github.com/jbradf0rd/projectgranada.git
 cd granada
 
 # Create virtual environment
@@ -291,8 +291,8 @@ python app.py
 
 ## Support
 
-- **Issues:** [GitHub Issues](../../issues)
-- **Discussions:** [GitHub Discussions](../../discussions)
+- **Issues:** [GitHub Issues](https://github.com/jbradf0rd/projectgranada/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/jbradf0rd/projectgranada/discussions)
 
 ---
 
