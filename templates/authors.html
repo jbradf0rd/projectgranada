@@ -1,86 +1,82 @@
 {% extends "base.html" %}
 
-{% block title %}مؤلفون - غرناطة{% endblock %}
+{% block title %}المؤلفون - غرناطة{% endblock %}
 
 {% block content %}
-<div x-data="authorsApp()" x-init="init()">
-    
+<div class="container" x-data="authorsPage()">
     <!-- Search -->
-    <div class="search-input-cont mb-4">
-        <div class="search-flex">
-            <input 
-                type="text" 
-                class="search-input" 
-                placeholder="أدخل اسم المؤلف..."
-                x-model="search"
-            >
-        </div>
+    <div class="search-input-cont" style="margin-top: 2rem; margin-bottom: var(--spacing-lg);">
+        <input type="text" placeholder="ابحث عن مؤلف..." x-model="search" @input="filterAuthors()">
     </div>
-    
-    <!-- Authors count -->
-    <div class="results-count">
-        عدد المؤلفين: <span x-text="filteredAuthors.length"></span>
+
+    <!-- Count -->
+    <div class="results-count" x-show="filteredAuthors.length > 0">
+        <span x-text="filteredAuthors.length + ' مؤلف'"></span>
     </div>
-    
-    <!-- Loading -->
-    <div class="loading-state" x-show="loading" x-cloak>
+
+    <!-- Loading State -->
+    <div class="loading" x-show="isLoading">
         <div class="loading-spinner"></div>
-        جاري التحميل...
     </div>
-    
-    <!-- Empty -->
-    <div class="empty-state" x-show="!loading && authors.length === 0">
-        لا يوجد مؤلفون
+
+    <!-- Authors List -->
+    <div x-show="!isLoading && filteredAuthors.length > 0">
+        <template x-for="author in filteredAuthors" :key="author.id">
+            <a :href="'/authors/' + author.id" class="author-item">
+                <div class="author-name">
+                    <span x-text="author.name"></span>
+                    <span class="author-death" x-text="'(ت ' + author.death_date + ' هـ)'"></span>
+                </div>
+                <span class="author-book-count" x-text="'(' + author.book_count + ')'"></span>
+            </a>
+        </template>
     </div>
-    
-    <!-- Authors list -->
-    <template x-for="author in filteredAuthors" :key="author.id">
-        <a :href="'/author/' + author.id" class="author-item">
-            <span class="author-name">
-                <span x-text="author.name"></span>
-                <template x-if="author.death_date">
-                    <span class="author-death"> (ت <span x-text="author.death_date"></span> هـ)</span>
-                </template>
-            </span>
-            <span class="author-book-count" x-text="author.book_count"></span>
-        </a>
-    </template>
+
+    <!-- Empty State -->
+    <div class="empty-state" x-show="!isLoading && filteredAuthors.length === 0">
+        <div class="empty-state-icon">&#128100;</div>
+        <div class="empty-state-text">لم يتم العثور على مؤلفين</div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function authorsApp() {
+function authorsPage() {
     return {
         authors: [],
+        filteredAuthors: [],
         search: '',
-        loading: true,
-        
-        async init() {
-            this.loading = true;
+        isLoading: true,
+
+        init() {
+            this.loadAuthors();
+        },
+
+        async loadAuthors() {
+            this.isLoading = true;
             try {
                 const response = await fetch('/api/authors');
                 const data = await response.json();
                 this.authors = data.authors || [];
+                // Sort by death date (oldest first)
+                this.authors.sort((a, b) => a.death_date - b.death_date);
+                this.filteredAuthors = [...this.authors];
             } catch (error) {
                 console.error('Failed to load authors:', error);
-                // Sample data
-                this.authors = [
-                    { id: '1', name: 'عمرو بن قميئة', death_date: '81 قبل', book_count: 1 },
-                    { id: '2', name: 'امرؤ القيس', death_date: '80 قبل', book_count: 2 },
-                    { id: '3', name: 'البخاري', death_date: '256', book_count: 5 },
-                    { id: '4', name: 'مسلم بن الحجاج', death_date: '261', book_count: 3 },
-                    { id: '5', name: 'ابن تيمية', death_date: '728', book_count: 45 },
-                    { id: '6', name: 'ابن القيم', death_date: '751', book_count: 32 },
-                ];
             } finally {
-                this.loading = false;
+                this.isLoading = false;
             }
         },
-        
-        get filteredAuthors() {
-            if (!this.search) return this.authors;
-            return this.authors.filter(a => a.name.includes(this.search));
+
+        filterAuthors() {
+            if (!this.search) {
+                this.filteredAuthors = [...this.authors];
+                return;
+            }
+            this.filteredAuthors = this.authors.filter(a =>
+                a.name.includes(this.search)
+            );
         }
     };
 }

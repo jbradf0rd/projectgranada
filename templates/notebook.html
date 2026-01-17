@@ -1,0 +1,1046 @@
+{% extends "base.html" %}
+
+{% block title %}كناشة الفوائد - غرناطة{% endblock %}
+
+{% block content %}
+<div class="notebook-container" x-data="notebookPage()">
+    <!-- Main Layout -->
+    <div class="notebook-main-layout">
+        <!-- Editor Area -->
+        <main class="notebook-editor-area">
+            <!-- Loading State -->
+            <div class="loading" x-show="isLoading" style="min-height: 50vh;">
+                <div class="loading-spinner"></div>
+            </div>
+
+            <!-- No Note Selected State -->
+            <div class="notebook-empty-editor" x-show="!isLoading && !selectedNote && notes.length > 0" x-cloak>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width: 64px; height: 64px; opacity: 0.3;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                <div class="empty-state-text">اختر فائدة من القائمة</div>
+                <div class="text-muted">أو أنشئ فائدة جديدة</div>
+            </div>
+
+            <!-- No Notes At All State -->
+            <div class="notebook-empty-editor" x-show="!isLoading && notes.length === 0" x-cloak>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width: 64px; height: 64px; opacity: 0.3;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                <div class="empty-state-text">الكناشة فارغة</div>
+                <div class="text-muted" style="margin-bottom: var(--spacing-md);">أضف فائدة جديدة للبدء</div>
+                <button class="btn btn-primary" @click="createNewNote()">+ فائدة جديدة</button>
+            </div>
+
+            <!-- Note Editor -->
+            <div class="note-editor" x-show="!isLoading && selectedNote" x-cloak>
+                <!-- Breadcrumb -->
+                <div class="note-breadcrumb">
+                    <span x-text="getDateGroup(selectedNote?.created_at)"></span>
+                    <span class="breadcrumb-sep">/</span>
+                    <span x-text="formatTime(selectedNote?.created_at)"></span>
+                </div>
+
+                <!-- Note Content -->
+                <div class="note-editor-content">
+                    <textarea
+                        class="note-editor-textarea"
+                        x-model="editContent"
+                        @input="autoSave()"
+                        placeholder="اكتب فائدتك هنا..."
+                        x-ref="editorTextarea"></textarea>
+                </div>
+
+                <!-- Editor Footer -->
+                <div class="note-editor-footer">
+                    <div class="note-editor-meta">
+                        <span x-show="selectedNote?.source_type && selectedNote.source_type !== 'manual'" class="note-source-badge" x-text="getSourceLabel(selectedNote?.source_type)"></span>
+                        <span class="note-save-status" x-text="saveStatus"></span>
+                    </div>
+                    <div class="note-editor-actions">
+                        <button class="btn btn-sm btn-danger" @click="deleteSelectedNote()">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            حذف
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Notes Sidebar -->
+        <aside class="notebook-sidebar" :class="{ 'collapsed': !sidebarOpen }">
+            <!-- Sidebar Header -->
+            <div class="sidebar-header">
+                <button @click="sidebarOpen = !sidebarOpen" class="pin-toggle" :title="sidebarOpen ? 'إخفاء القائمة' : 'إظهار القائمة'">
+                    <svg x-show="sidebarOpen" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                    <svg x-show="!sidebarOpen" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <span class="sidebar-title">الفوائد</span>
+                <div class="sidebar-header-actions">
+                    <button class="btn btn-sm" :class="exportMode ? 'btn-primary' : 'btn-outline'"
+                            @click="toggleExportMode()" :disabled="notes.length === 0"
+                            :title="exportMode ? 'إلغاء التصدير' : 'تصدير الفوائد'">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                    </button>
+                    <button class="btn btn-sm btn-primary" @click="createNewNote()" title="فائدة جديدة" x-show="!exportMode">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sidebar Content -->
+            <div class="sidebar-content">
+                <!-- Date Groups -->
+                <template x-for="(group, groupKey) in groupedNotes" :key="groupKey">
+                    <div class="notes-date-group" x-show="group.length > 0">
+                        <div class="date-group-header">
+                            <span x-text="groupKey"></span>
+                            <!-- Select all in group when in export mode -->
+                            <label x-show="exportMode" class="group-select-all" @click.stop>
+                                <input type="checkbox"
+                                       :checked="isGroupFullySelected(group)"
+                                       @change="toggleGroupSelection(group, $event.target.checked)">
+                            </label>
+                        </div>
+                        <template x-for="note in group" :key="note.id">
+                            <div class="sidebar-note-item"
+                                 :class="{ 'selected': selectedNote?.id === note.id, 'export-selected': exportMode && selectedNoteIds.includes(note.id) }"
+                                 @click="exportMode ? toggleNoteSelection(note.id) : selectNote(note)">
+                                <!-- Checkbox in export mode -->
+                                <div x-show="exportMode" class="note-checkbox" @click.stop>
+                                    <input type="checkbox"
+                                           :checked="selectedNoteIds.includes(note.id)"
+                                           @change="toggleNoteSelection(note.id)">
+                                </div>
+                                <div class="sidebar-note-content">
+                                    <div class="sidebar-note-title" x-text="getNoteTitle(note)"></div>
+                                    <div class="sidebar-note-time" x-text="formatTime(note.created_at)"></div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Empty Sidebar -->
+                <div class="sidebar-empty" x-show="notes.length === 0 && !isLoading">
+                    <span>لا توجد فوائد</span>
+                </div>
+            </div>
+
+            <!-- Export Mode Footer -->
+            <div class="sidebar-footer" x-show="exportMode" x-cloak>
+                <div class="export-selection-info">
+                    <span x-text="selectedNoteIds.length + ' محددة'"></span>
+                    <button class="btn btn-sm" @click="selectAllNotes()">تحديد الكل</button>
+                </div>
+                <div class="export-actions">
+                    <button class="btn btn-sm" @click="cancelExportMode()">إلغاء</button>
+                    <button class="btn btn-sm btn-primary" @click="exportSelectedNotes()" :disabled="selectedNoteIds.length === 0">
+                        تصدير
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Sidebar Expand Tab (shown when collapsed) -->
+        <button
+            x-show="!sidebarOpen"
+            @click="sidebarOpen = true"
+            class="sidebar-expand-tab"
+            :style="{ left: showAiChat ? '350px' : '48px' }"
+            title="إظهار القائمة"
+            x-cloak>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" />
+            </svg>
+        </button>
+
+        <!-- AI Chat Column -->
+        <aside class="ai-chat-column" :class="{ 'collapsed': !showAiChat }" @click="!showAiChat && toggleAiChat()">
+            <!-- Collapsed State -->
+            <div class="ai-column-collapsed" x-show="!showAiChat">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <span class="ai-column-label">AI</span>
+            </div>
+
+            <!-- Expanded State -->
+            <template x-if="showAiChat">
+                <div class="ai-column-content">
+                    <!-- AI Header -->
+                    <div class="ai-column-header">
+                        <div class="ai-header-title">
+                            <span>محادثة AI</span>
+                        </div>
+                        <button class="ai-collapse-btn" @click.stop="toggleAiChat()" title="إغلاق">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Chat Messages -->
+                    <div class="ai-messages" x-ref="aiMessages">
+                        <template x-for="(message, index) in chatMessages" :key="index">
+                            <div class="ai-message" :class="message.role">
+                                <div class="ai-message-bubble" x-text="message.content"></div>
+                            </div>
+                        </template>
+                        <div class="ai-loading" x-show="isAiLoading">
+                            <div class="loading-spinner" style="width: 20px; height: 20px;"></div>
+                            <span>جاري التفكير...</span>
+                        </div>
+                        <div class="ai-empty" x-show="chatMessages.length === 0 && !isAiLoading">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width: 48px; height: 48px; opacity: 0.5;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <span>اسأل عن فوائدك</span>
+                        </div>
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="ai-input-area">
+                        <input type="text"
+                               class="ai-input"
+                               placeholder="اسأل عن الفوائد..."
+                               x-model="chatInput"
+                               @keyup.enter="sendAiMessage()"
+                               @click.stop>
+                        <button class="ai-send-btn" @click.stop="sendAiMessage()">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </aside>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="overlay" :class="{ 'active': showExportModal }" @click="showExportModal = false"></div>
+    <div class="popover" x-show="showExportModal" x-cloak style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 380px; z-index: 1001;">
+        <div class="popover-header">تصدير إلى Obsidian</div>
+        <div style="padding: var(--spacing-md);">
+            <p style="margin-bottom: var(--spacing-md); color: var(--text-secondary);">
+                سيتم تصدير <strong x-text="selectedNoteIds.length"></strong> فائدة كملفات Markdown منفصلة.
+            </p>
+
+            <!-- Folder Selection -->
+            <div class="export-folder-select">
+                <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: var(--spacing-xs); display: block;">
+                    مجلد التصدير:
+                </label>
+                <div style="display: flex; gap: var(--spacing-sm);">
+                    <input type="text" class="export-folder-input" x-model="exportFolderPath"
+                           placeholder="اختر مجلد..." readonly
+                           style="flex: 1; padding: var(--spacing-sm); background: var(--bg-color); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
+                    <button class="btn btn-sm" @click="browseExportFolder()">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Export Options -->
+            <div style="margin-top: var(--spacing-md);">
+                <label class="export-option">
+                    <input type="checkbox" x-model="exportWithFrontmatter">
+                    <span>إضافة frontmatter للتوافق مع Obsidian</span>
+                </label>
+            </div>
+
+            <!-- Actions -->
+            <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-lg); justify-content: flex-end;">
+                <button class="btn" @click="showExportModal = false">إلغاء</button>
+                <button class="btn btn-primary" @click="doExportToFolder()" :disabled="!exportFolderPath || isExporting">
+                    <span x-show="!isExporting">تصدير</span>
+                    <span x-show="isExporting">جاري التصدير...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" x-show="showToast" x-cloak x-transition>
+        <span x-text="toastMessage"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function notebookPage() {
+    return {
+        notes: [],
+        selectedNote: null,
+        editContent: '',
+        isLoading: true,
+        sidebarOpen: true,
+        showAiChat: false,
+        saveStatus: '',
+        saveTimeout: null,
+
+        // AI Chat
+        chatMessages: [],
+        chatInput: '',
+        isAiLoading: false,
+
+        // Export
+        showExportModal: false,
+        exportFolderPath: '',
+        exportMode: false,
+        selectedNoteIds: [],
+        exportWithFrontmatter: true,
+        isExporting: false,
+
+        // Toast
+        showToast: false,
+        toastMessage: '',
+
+        async init() {
+            await this.loadNotes();
+        },
+
+        async loadNotes() {
+            this.isLoading = true;
+            try {
+                const response = await fetch('/api/notes');
+                const data = await response.json();
+                this.notes = data.notes || [];
+            } catch (error) {
+                console.error('Failed to load notes:', error);
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        get groupedNotes() {
+            const groups = {
+                'اليوم': [],
+                'أمس': [],
+                'هذا الأسبوع': [],
+                'هذا الشهر': [],
+                'أقدم': []
+            };
+
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+            for (const note of this.notes) {
+                const noteDate = new Date(note.created_at);
+                const noteDay = new Date(noteDate.getFullYear(), noteDate.getMonth(), noteDate.getDate());
+
+                if (noteDay >= today) {
+                    groups['اليوم'].push(note);
+                } else if (noteDay >= yesterday) {
+                    groups['أمس'].push(note);
+                } else if (noteDay >= weekAgo) {
+                    groups['هذا الأسبوع'].push(note);
+                } else if (noteDay >= monthAgo) {
+                    groups['هذا الشهر'].push(note);
+                } else {
+                    groups['أقدم'].push(note);
+                }
+            }
+
+            return groups;
+        },
+
+        getDateGroup(dateStr) {
+            if (!dateStr) return '';
+            const noteDate = new Date(dateStr);
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+            const noteDay = new Date(noteDate.getFullYear(), noteDate.getMonth(), noteDate.getDate());
+
+            if (noteDay >= today) return 'اليوم';
+            if (noteDay >= yesterday) return 'أمس';
+            if (noteDay >= weekAgo) return 'هذا الأسبوع';
+            if (noteDay >= monthAgo) return 'هذا الشهر';
+            return 'أقدم';
+        },
+
+        getNoteTitle(note) {
+            if (!note.content) return 'فائدة جديدة';
+            const firstLine = note.content.split('\n')[0].trim();
+            if (firstLine.length > 50) {
+                return firstLine.substring(0, 50) + '...';
+            }
+            return firstLine || 'فائدة جديدة';
+        },
+
+        formatTime(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return date.toLocaleTimeString('ar', { hour: '2-digit', minute: '2-digit' });
+        },
+
+        getSourceLabel(sourceType) {
+            const labels = {
+                'manual': 'يدوي',
+                'ai_chat': 'محادثة AI',
+                'highlight': 'اقتباس'
+            };
+            return labels[sourceType] || sourceType;
+        },
+
+        selectNote(note) {
+            this.selectedNote = note;
+            this.editContent = note.content || '';
+            this.saveStatus = '';
+        },
+
+        async createNewNote() {
+            try {
+                const response = await fetch('/api/notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: '',
+                        source_type: 'manual'
+                    })
+                });
+                const data = await response.json();
+                if (data.note) {
+                    this.notes.unshift(data.note);
+                    this.selectNote(data.note);
+                    this.$nextTick(() => {
+                        this.$refs.editorTextarea?.focus();
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to create note:', error);
+            }
+        },
+
+        autoSave() {
+            this.saveStatus = 'جاري الحفظ...';
+
+            if (this.saveTimeout) {
+                clearTimeout(this.saveTimeout);
+            }
+
+            this.saveTimeout = setTimeout(() => {
+                this.saveNote();
+            }, 1000);
+        },
+
+        async saveNote() {
+            if (!this.selectedNote) return;
+
+            try {
+                await fetch(`/api/notes/${this.selectedNote.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content: this.editContent })
+                });
+
+                // Update local state
+                const note = this.notes.find(n => n.id === this.selectedNote.id);
+                if (note) {
+                    note.content = this.editContent;
+                    note.excerpt = this.editContent.substring(0, 80) + (this.editContent.length > 80 ? '...' : '');
+                }
+                this.selectedNote.content = this.editContent;
+
+                this.saveStatus = 'تم الحفظ';
+                setTimeout(() => {
+                    if (this.saveStatus === 'تم الحفظ') {
+                        this.saveStatus = '';
+                    }
+                }, 2000);
+            } catch (error) {
+                console.error('Failed to save note:', error);
+                this.saveStatus = 'خطأ في الحفظ';
+            }
+        },
+
+        async deleteSelectedNote() {
+            if (!this.selectedNote) return;
+            if (!confirm('هل أنت متأكد من حذف هذه الفائدة؟')) return;
+
+            try {
+                await fetch(`/api/notes/${this.selectedNote.id}`, { method: 'DELETE' });
+                this.notes = this.notes.filter(n => n.id !== this.selectedNote.id);
+                this.selectedNote = null;
+                this.editContent = '';
+            } catch (error) {
+                console.error('Failed to delete note:', error);
+            }
+        },
+
+        toggleAiChat() {
+            this.showAiChat = !this.showAiChat;
+        },
+
+        scrollAiToBottom() {
+            this.$nextTick(() => {
+                const container = this.$refs.aiMessages;
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            });
+        },
+
+        async sendAiMessage() {
+            if (!this.chatInput.trim()) return;
+
+            const userMessage = this.chatInput;
+            this.chatMessages.push({ role: 'user', content: userMessage });
+            this.chatInput = '';
+            this.isAiLoading = true;
+            this.scrollAiToBottom();
+
+            // Build context from current note and recent notes
+            let context = '';
+            if (this.selectedNote) {
+                context = `الفائدة الحالية:\n${this.selectedNote.content}\n\n`;
+            }
+            context += `لدي ${this.notes.length} فائدة في الكناشة.`;
+
+            try {
+                const response = await fetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: userMessage,
+                        book_id: '',
+                        page_content: context,
+                        book_title: 'كناشة الفوائد'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    this.chatMessages.push({
+                        role: 'assistant',
+                        content: data.error
+                    });
+                } else {
+                    this.chatMessages.push({
+                        role: 'assistant',
+                        content: data.response || 'لم أتمكن من الإجابة.'
+                    });
+                }
+                this.scrollAiToBottom();
+            } catch (error) {
+                console.error('AI chat error:', error);
+                this.chatMessages.push({
+                    role: 'assistant',
+                    content: 'حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى.'
+                });
+                this.scrollAiToBottom();
+            } finally {
+                this.isAiLoading = false;
+            }
+        },
+
+        // Export Mode Functions
+        toggleExportMode() {
+            this.exportMode = !this.exportMode;
+            if (!this.exportMode) {
+                this.selectedNoteIds = [];
+            }
+        },
+
+        cancelExportMode() {
+            this.exportMode = false;
+            this.selectedNoteIds = [];
+        },
+
+        toggleNoteSelection(noteId) {
+            const idx = this.selectedNoteIds.indexOf(noteId);
+            if (idx === -1) {
+                this.selectedNoteIds.push(noteId);
+            } else {
+                this.selectedNoteIds.splice(idx, 1);
+            }
+        },
+
+        isGroupFullySelected(group) {
+            if (group.length === 0) return false;
+            return group.every(note => this.selectedNoteIds.includes(note.id));
+        },
+
+        toggleGroupSelection(group, checked) {
+            for (const note of group) {
+                const idx = this.selectedNoteIds.indexOf(note.id);
+                if (checked && idx === -1) {
+                    this.selectedNoteIds.push(note.id);
+                } else if (!checked && idx !== -1) {
+                    this.selectedNoteIds.splice(idx, 1);
+                }
+            }
+        },
+
+        selectAllNotes() {
+            this.selectedNoteIds = this.notes.map(n => n.id);
+        },
+
+        exportSelectedNotes() {
+            if (this.selectedNoteIds.length === 0) return;
+            this.showExportModal = true;
+        },
+
+        exportNotes() {
+            // Legacy function - now triggers export mode
+            this.exportMode = true;
+            this.selectAllNotes();
+            this.showExportModal = true;
+        },
+
+        async browseExportFolder() {
+            try {
+                const response = await fetch('/api/notes/browse-export-folder', { method: 'POST' });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    this.exportFolderPath = data.path;
+                }
+            } catch (error) {
+                console.error('Failed to browse folder:', error);
+            }
+        },
+
+        async doExportToFolder() {
+            if (!this.exportFolderPath || this.selectedNoteIds.length === 0) return;
+
+            this.isExporting = true;
+
+            try {
+                const response = await fetch('/api/notes/export', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        folder_path: this.exportFolderPath,
+                        note_ids: this.selectedNoteIds,
+                        with_frontmatter: this.exportWithFrontmatter
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    this.showToastMessage(`تم تصدير ${data.exported} فائدة بنجاح`);
+                    this.showExportModal = false;
+                    this.cancelExportMode();
+                } else {
+                    this.showToastMessage(data.error || 'حدث خطأ أثناء التصدير');
+                }
+            } catch (error) {
+                console.error('Failed to export notes:', error);
+                this.showToastMessage('حدث خطأ أثناء التصدير');
+            } finally {
+                this.isExporting = false;
+            }
+        },
+
+        showToastMessage(message) {
+            this.toastMessage = message;
+            this.showToast = true;
+            setTimeout(() => {
+                this.showToast = false;
+            }, 2500);
+        }
+    };
+}
+</script>
+
+<style>
+[x-cloak] { display: none !important; }
+
+/* Notebook Container */
+.notebook-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Takes full height of parent (.page-content) */
+    overflow: hidden;
+    background: var(--bg-color);
+}
+
+/* Sidebar Header Actions */
+.sidebar-header-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-right: auto;
+}
+
+/* Outline button style */
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+}
+
+.btn-outline:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent);
+    color: var(--text-primary);
+}
+
+.btn-outline:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Main Layout */
+.notebook-main-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0; /* Critical: allows flex children to shrink below content size */
+    overflow: hidden;
+    position: relative;
+}
+
+/* Editor Area - scrolls independently */
+.notebook-editor-area {
+    flex: 1;
+    min-width: 0; /* Prevent flex blowout */
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--bg-color);
+}
+
+.notebook-empty-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    gap: var(--spacing-sm);
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Note Editor */
+.note-editor {
+    display: flex;
+    flex-direction: column;
+    max-width: 700px;
+    margin: 0 auto;
+    width: 100%;
+    padding: var(--spacing-lg);
+    flex: 1;
+    min-height: 0;
+}
+
+.note-breadcrumb {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-md);
+}
+
+.breadcrumb-sep {
+    margin: 0 var(--spacing-xs);
+}
+
+.note-editor-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* Allow shrinking */
+    overflow: hidden;
+}
+
+.note-editor-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 200px;
+    padding: var(--spacing-md);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: 'Noto Naskh Arabic', serif;
+    font-size: 18px;
+    line-height: 1.8;
+    resize: none;
+    overflow-y: auto;
+}
+
+.note-editor-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.note-editor-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+}
+
+.note-editor-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.note-source-badge {
+    background: rgba(82, 148, 196, 0.15);
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+}
+
+.note-save-status {
+    color: var(--text-muted);
+}
+
+/* Notebook Sidebar */
+.notebook-sidebar {
+    width: 260px;
+    border-right: 1px solid var(--border-color);
+    background: var(--bg-card);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    transition: width 0.2s ease, opacity 0.2s ease;
+    overflow: hidden;
+}
+
+.notebook-sidebar .sidebar-header {
+    flex-shrink: 0;
+}
+
+.notebook-sidebar .sidebar-content {
+    flex: 1;
+    min-height: 0; /* Allow shrinking */
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.notebook-sidebar.collapsed {
+    width: 0;
+    border-right: none;
+}
+
+/* Date Groups */
+.notes-date-group {
+    margin-bottom: var(--spacing-sm);
+}
+
+.date-group-header {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+    background: var(--bg-card);
+    z-index: 1;
+}
+
+.sidebar-note-item {
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.15s;
+}
+
+.sidebar-note-item:hover {
+    background: var(--bg-hover);
+}
+
+.sidebar-note-item.selected {
+    background: rgba(82, 148, 196, 0.15);
+    border-right: 3px solid var(--accent);
+}
+
+.sidebar-note-title {
+    font-size: 14px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+}
+
+.sidebar-note-time {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.sidebar-empty {
+    padding: var(--spacing-lg);
+    text-align: center;
+    color: var(--text-muted);
+}
+
+/* Sidebar Expand Tab - dynamically positioned next to AI sidebar via inline style */
+.sidebar-expand-tab {
+    position: absolute;
+    top: 50%;
+    right: auto !important;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 64px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-left: none;
+    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text-muted);
+    z-index: 10;
+}
+
+.sidebar-expand-tab:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* Export Mode Styles */
+.date-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.group-select-all {
+    cursor: pointer;
+}
+
+.group-select-all input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--accent);
+}
+
+.sidebar-note-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+}
+
+.note-checkbox {
+    padding-top: 2px;
+    flex-shrink: 0;
+}
+
+.note-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+.sidebar-note-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.sidebar-note-item.export-selected {
+    background: rgba(82, 148, 196, 0.1);
+}
+
+/* Sidebar Footer for Export Mode */
+.sidebar-footer {
+    flex-shrink: 0;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-card);
+}
+
+.export-selection-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.export-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+}
+
+/* Export Modal Styles */
+.export-option {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.export-option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+}
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-popover);
+    z-index: 1000;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .notebook-sidebar {
+        position: absolute;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 100;
+        box-shadow: var(--shadow-popover);
+    }
+
+    .notebook-sidebar.collapsed {
+        width: 0;
+    }
+
+    .note-editor {
+        padding: var(--spacing-md);
+    }
+}
+</style>
+{% endblock %}

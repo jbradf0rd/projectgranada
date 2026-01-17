@@ -1,0 +1,594 @@
+{% extends "base.html" %}
+
+{% block title %}بطاقة الكتاب - غرناطة{% endblock %}
+
+{% block content %}
+<div class="container" x-data="bookCardPage()" x-init="init()">
+    <!-- Header -->
+    <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-lg);">
+        <a href="/books" class="btn" style="padding: var(--spacing-sm);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+            </svg>
+        </a>
+        <h2 class="section-title" style="margin: 0;" x-text="book.title || 'جاري التحميل...'"></h2>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading" x-show="isLoading">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Book Card -->
+    <div x-show="!isLoading && book.id" class="book-card-container">
+        <!-- Main Info Section -->
+        <div class="card-section">
+            <h3 class="card-section-title">معلومات الكتاب</h3>
+            <div class="card-grid">
+                <div class="card-item" x-show="book.title">
+                    <span class="card-label">العنوان</span>
+                    <span class="card-value" x-text="book.title"></span>
+                </div>
+                <div class="card-item" x-show="book.subtitle">
+                    <span class="card-label">العنوان الفرعي</span>
+                    <span class="card-value" x-text="book.subtitle"></span>
+                </div>
+                <div class="card-item" x-show="book.alt_title">
+                    <span class="card-label">العنوان البديل</span>
+                    <span class="card-value" x-text="book.alt_title"></span>
+                </div>
+                <div class="card-item" x-show="book.language">
+                    <span class="card-label">اللغة</span>
+                    <span class="card-value" x-text="book.language"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subject/Category Section -->
+        <div class="card-section" x-show="book.subject_hierarchy && book.subject_hierarchy.length > 0">
+            <h3 class="card-section-title">التصنيف</h3>
+            <div class="subject-hierarchy">
+                <template x-for="(subject, index) in book.subject_hierarchy" :key="index">
+                    <span class="subject-tag">
+                        <span x-text="subject"></span>
+                        <span x-show="index < book.subject_hierarchy.length - 1" class="subject-separator">&larr;</span>
+                    </span>
+                </template>
+            </div>
+            <div class="card-item" x-show="book.category && book.category.name" style="margin-top: var(--spacing-md);">
+                <span class="card-label">قسم المكتبة</span>
+                <span class="card-value" x-text="book.category?.name"></span>
+            </div>
+        </div>
+
+        <!-- Author Section -->
+        <div class="card-section">
+            <h3 class="card-section-title">المؤلف</h3>
+            <div class="card-grid">
+                <div class="card-item" x-show="book.author?.name">
+                    <span class="card-label">الاسم</span>
+                    <span class="card-value" x-text="book.author?.name"></span>
+                </div>
+                <div class="card-item" x-show="book.author?.aka">
+                    <span class="card-label">الكنية</span>
+                    <span class="card-value" x-text="book.author?.aka"></span>
+                </div>
+                <div class="card-item" x-show="book.author?.born">
+                    <span class="card-label">تاريخ الولادة</span>
+                    <span class="card-value" x-text="book.author?.born + ' هـ'"></span>
+                </div>
+                <div class="card-item" x-show="book.author?.death">
+                    <span class="card-label">تاريخ الوفاة</span>
+                    <span class="card-value" x-text="book.author?.death + ' هـ'"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edition Section -->
+        <div class="card-section" x-show="hasEditionInfo()">
+            <h3 class="card-section-title">معلومات الطبعة</h3>
+            <div class="card-grid">
+                <div class="card-item" x-show="book.edition?.editor">
+                    <span class="card-label">المحقق</span>
+                    <span class="card-value" x-text="book.edition?.editor"></span>
+                </div>
+                <div class="card-item" x-show="book.edition?.publisher">
+                    <span class="card-label">الناشر</span>
+                    <span class="card-value" x-text="book.edition?.publisher"></span>
+                </div>
+                <div class="card-item" x-show="book.edition?.place">
+                    <span class="card-label">مكان النشر</span>
+                    <span class="card-value" x-text="book.edition?.place"></span>
+                </div>
+                <div class="card-item" x-show="book.edition?.year">
+                    <span class="card-label">سنة النشر</span>
+                    <span class="card-value" x-text="book.edition?.year"></span>
+                </div>
+                <div class="card-item" x-show="book.edition?.edition_number">
+                    <span class="card-label">رقم الطبعة</span>
+                    <span class="card-value" x-text="book.edition?.edition_number"></span>
+                </div>
+                <div class="card-item" x-show="book.edition?.isbn">
+                    <span class="card-label">ISBN</span>
+                    <span class="card-value" x-text="book.edition?.isbn"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="card-section">
+            <h3 class="card-section-title">إحصائيات</h3>
+            <div class="card-grid stats-grid">
+                <div class="stat-card">
+                    <span class="stat-value" x-text="book.stats?.volumes || 1"></span>
+                    <span class="stat-label">مجلد</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-value" x-text="book.stats?.pages || 0"></span>
+                    <span class="stat-label">صفحة</span>
+                </div>
+                <div class="stat-card" x-show="book.stats?.toc_entries > 0">
+                    <span class="stat-value" x-text="book.stats?.toc_entries"></span>
+                    <span class="stat-label">فصل</span>
+                </div>
+                <div class="stat-card" x-show="book.stats?.file_size">
+                    <span class="stat-value" x-text="formatFileSize(book.stats?.file_size)"></span>
+                    <span class="stat-label">حجم الملف</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metadata Section -->
+        <div class="card-section" x-show="book.openiti_uri || book.source">
+            <h3 class="card-section-title">بيانات وصفية</h3>
+            <div class="card-grid">
+                <div class="card-item" x-show="book.openiti_uri">
+                    <span class="card-label">OpenITI URI</span>
+                    <span class="card-value monospace" x-text="book.openiti_uri"></span>
+                </div>
+                <div class="card-item" x-show="book.source">
+                    <span class="card-label">المصدر</span>
+                    <span class="card-value" x-text="book.source"></span>
+                </div>
+                <div class="card-item" x-show="book.download_date">
+                    <span class="card-label">تاريخ الإضافة</span>
+                    <span class="card-value" x-text="formatDate(book.download_date)"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card-actions">
+            <a :href="'/book/' + book.id" class="btn btn-primary">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+                قراءة الكتاب
+            </a>
+            <button class="btn" @click="toggleOwnership()" :class="{'btn-success': book.is_owned}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path x-show="!book.is_owned" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    <path x-show="book.is_owned" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" fill="currentColor"/>
+                </svg>
+                <span x-text="book.is_owned ? 'مملوك' : 'إضافة للمملوكات'"></span>
+            </button>
+            <button class="btn" @click="openEditModal()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                تعديل
+            </button>
+            <button class="btn btn-danger" @click="confirmDelete()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                </svg>
+                حذف
+            </button>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="overlay" :class="{ 'active': showEditModal }" @click="showEditModal = false"></div>
+    <div class="edit-modal" x-show="showEditModal" x-cloak>
+        <div class="edit-modal-header">
+            <span>تعديل بطاقة الكتاب</span>
+            <button class="edit-modal-close" @click="showEditModal = false">&times;</button>
+        </div>
+        <div class="edit-modal-body">
+            <div class="edit-form-grid">
+                <div class="edit-form-group">
+                    <label>العنوان</label>
+                    <input type="text" class="input-field" x-model="editForm.title">
+                </div>
+                <div class="edit-form-group">
+                    <label>العنوان الفرعي</label>
+                    <input type="text" class="input-field" x-model="editForm.subtitle">
+                </div>
+                <div class="edit-form-group">
+                    <label>اسم المؤلف</label>
+                    <input type="text" class="input-field" x-model="editForm.author_name">
+                </div>
+                <div class="edit-form-group">
+                    <label>تاريخ الوفاة (هـ)</label>
+                    <input type="text" class="input-field" x-model="editForm.death_date">
+                </div>
+                <div class="edit-form-group">
+                    <label>المحقق</label>
+                    <input type="text" class="input-field" x-model="editForm.editor">
+                </div>
+                <div class="edit-form-group">
+                    <label>الناشر</label>
+                    <input type="text" class="input-field" x-model="editForm.publisher">
+                </div>
+                <div class="edit-form-group">
+                    <label>مكان النشر</label>
+                    <input type="text" class="input-field" x-model="editForm.publication_place">
+                </div>
+                <div class="edit-form-group">
+                    <label>سنة النشر</label>
+                    <input type="text" class="input-field" x-model="editForm.publication_year">
+                </div>
+                <div class="edit-form-group full-width">
+                    <label>التصنيف (subject)</label>
+                    <input type="text" class="input-field" x-model="editForm.subject">
+                </div>
+            </div>
+        </div>
+        <div class="edit-modal-footer">
+            <button class="btn" @click="showEditModal = false">إلغاء</button>
+            <button class="btn btn-primary" @click="saveBook()">حفظ التغييرات</button>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div class="empty-state" x-show="!isLoading && !book.id">
+        <div class="empty-state-icon">&#128218;</div>
+        <div class="empty-state-text">لم يتم العثور على الكتاب</div>
+    </div>
+</div>
+
+<style>
+.book-card-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.card-section {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.card-section-title {
+    color: var(--primary);
+    font-size: 1.1rem;
+    margin: 0 0 var(--spacing-md) 0;
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border);
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.card-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.card-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.card-value {
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.card-value.monospace {
+    font-family: monospace;
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+
+.subject-hierarchy {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+
+.subject-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    background: var(--primary-alpha);
+    color: var(--primary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-md);
+    font-size: 0.9rem;
+}
+
+.subject-separator {
+    color: var(--text-muted);
+    margin: 0 var(--spacing-xs);
+}
+
+.stats-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+}
+
+.stat-card {
+    flex: 1;
+    min-width: 100px;
+    text-align: center;
+    padding: var(--spacing-md);
+    background: var(--bg);
+    border-radius: var(--radius-md);
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: var(--spacing-xs);
+}
+
+.card-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+    margin-top: var(--spacing-lg);
+}
+
+.card-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.btn-success {
+    background: var(--success);
+    color: white;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+/* Edit Modal */
+.edit-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 600px;
+    max-height: 85vh;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-popover);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+}
+
+.edit-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.edit-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    line-height: 1;
+}
+
+.edit-modal-close:hover {
+    color: var(--text-primary);
+}
+
+.edit-modal-body {
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+    flex: 1;
+}
+
+.edit-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+}
+
+.edit-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.edit-form-group.full-width {
+    grid-column: span 2;
+}
+
+.edit-form-group label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.edit-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+}
+
+@media (max-width: 600px) {
+    .edit-form-grid {
+        grid-template-columns: 1fr;
+    }
+    .edit-form-group.full-width {
+        grid-column: span 1;
+    }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function bookCardPage() {
+    return {
+        bookId: '{{ book_id }}',
+        book: {},
+        isLoading: true,
+        showEditModal: false,
+        editForm: {},
+
+        async init() {
+            await this.loadBookCard();
+        },
+
+        async loadBookCard() {
+            this.isLoading = true;
+            try {
+                const response = await fetch(`/api/books/${this.bookId}/card`);
+                if (response.ok) {
+                    this.book = await response.json();
+                } else {
+                    console.error('Book not found');
+                }
+            } catch (error) {
+                console.error('Failed to load book card:', error);
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        hasEditionInfo() {
+            const ed = this.book.edition;
+            return ed && (ed.editor || ed.publisher || ed.place || ed.year || ed.edition_number || ed.isbn);
+        },
+
+        formatFileSize(bytes) {
+            if (!bytes) return '0';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        },
+
+        formatDate(dateStr) {
+            if (!dateStr) return '';
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('ar-SA');
+            } catch {
+                return dateStr;
+            }
+        },
+
+        async toggleOwnership() {
+            try {
+                const response = await fetch(`/api/books/${this.bookId}/ownership`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({is_owned: !this.book.is_owned})
+                });
+                if (response.ok) {
+                    this.book.is_owned = !this.book.is_owned;
+                }
+            } catch (error) {
+                console.error('Failed to update ownership:', error);
+            }
+        },
+
+        openEditModal() {
+            this.editForm = {
+                title: this.book.title || '',
+                subtitle: this.book.subtitle || '',
+                author_name: this.book.author?.name || '',
+                death_date: this.book.author?.death || '',
+                editor: this.book.edition?.editor || '',
+                publisher: this.book.edition?.publisher || '',
+                publication_place: this.book.edition?.place || '',
+                publication_year: this.book.edition?.year || '',
+                subject: this.book.subject || ''
+            };
+            this.showEditModal = true;
+        },
+
+        async saveBook() {
+            try {
+                const response = await fetch(`/api/books/${this.bookId}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(this.editForm)
+                });
+
+                if (response.ok) {
+                    this.showEditModal = false;
+                    await this.loadBookCard(); // Reload data
+                    alert('تم حفظ التغييرات بنجاح');
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'حدث خطأ أثناء الحفظ');
+                }
+            } catch (error) {
+                console.error('Failed to save book:', error);
+                alert('حدث خطأ أثناء الحفظ');
+            }
+        },
+
+        async confirmDelete() {
+            if (!confirm('هل أنت متأكد من حذف هذا الكتاب؟ سيتم حذف جميع صفحاته.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/books/${this.bookId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    alert('تم حذف الكتاب بنجاح');
+                    window.location.href = '/books';
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'حدث خطأ أثناء الحذف');
+                }
+            } catch (error) {
+                console.error('Failed to delete book:', error);
+                alert('حدث خطأ أثناء الحذف');
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

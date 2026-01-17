@@ -1,137 +1,705 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl" class="dark">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مرحبًا - غرناطة</title>
-    
+    <title>رفع الكتب - غرناطة</title>
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Main Stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    
+
+    <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        .upload-container {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: var(--spacing-xl);
+        }
+
+        .upload-header {
+            text-align: center;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .upload-header h1 {
+            font-size: 1.8rem;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .upload-tabs {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .upload-tab {
+            flex: 1;
+            padding: var(--spacing-md);
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 1rem;
+            font-family: inherit;
+            color: var(--text-muted);
+            transition: color 0.2s, border-color 0.2s;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .upload-tab:hover {
+            color: var(--text-color);
+        }
+
+        .upload-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .upload-panel {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            border: 1px solid var(--border-color);
+        }
+
+        .form-group {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: var(--spacing-sm);
+            font-weight: 500;
+        }
+
+        .form-group input[type="text"],
+        .form-group select {
+            width: 100%;
+            padding: var(--spacing-md);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            font-family: inherit;
+            background: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .form-group input[type="text"]:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-hint {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: var(--spacing-xs);
+        }
+
+        .file-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .file-list-empty {
+            padding: var(--spacing-lg);
+            text-align: center;
+            color: var(--text-muted);
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .file-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-item-name {
+            font-size: 0.9rem;
+        }
+
+        .file-item-size {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .upload-actions {
+            display: flex;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+        }
+
+        .upload-actions .btn {
+            flex: 1;
+        }
+
+        .format-help {
+            margin-top: var(--spacing-xl);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+
+        .format-help-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: var(--card-bg);
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .format-help-header:hover {
+            background: var(--bg-color);
+        }
+
+        .format-help-content {
+            padding: var(--spacing-lg);
+            background: var(--bg-color);
+            font-size: 0.9rem;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            font-family: monospace;
+            direction: ltr;
+            text-align: left;
+        }
+
+        .progress-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .progress-dialog {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .progress-dialog h3 {
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .progress-bar-container {
+            height: 8px;
+            background: var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+
+        .progress-status {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .alert {
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .alert-success {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            color: #16a34a;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #dc2626;
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #d97706;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: var(--spacing-lg);
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            color: var(--primary-color);
+        }
+    </style>
 </head>
 <body>
-    <div class="wizard-container" x-data="wizardApp()">
-        
-        <!-- Logo/Icon -->
-        <div style="margin-bottom:24px;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:64px;height:64px;margin:0 auto;display:block;color:var(--accent);">
-                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"></path>
-                <path d="M8 7h6"></path>
-                <path d="M8 11h8"></path>
-            </svg>
+    <div class="upload-container" x-data="uploadPage()">
+        <a href="/browse" class="back-link">&#8592; العودة إلى المكتبة</a>
+
+        <div class="upload-header">
+            <h1>رفع الكتب</h1>
+            <p class="text-muted">أضف كتباً جديدة إلى مكتبتك من ملفات محلية</p>
         </div>
-        
-        <h1 class="wizard-title">مرحبًا بك في غرناطة</h1>
-        
-        <p class="wizard-description">
-            مكتبة عربية للكتب الإسلامية تعمل بدون إنترنت.
-            <br>
-            ابدأ بتحميل مجموعة الكتب الأساسية أو تصفح المكتبة مباشرة.
-        </p>
-        
-        <!-- Download starter books -->
-        <div class="wizard-actions">
-            <button 
-                class="btn btn-primary wizard-btn" 
-                @click="downloadStarterBooks()"
-                :disabled="downloading"
-            >
-                <template x-if="!downloading && !downloaded">
-                    <span>تحميل الكتب الأساسية (الكتب التسعة)</span>
-                </template>
-                <template x-if="downloading">
-                    <span>
-                        <div class="loading-spinner" style="width:16px;height:16px;display:inline-block;vertical-align:middle;margin-left:8px;"></div>
-                        جاري التحميل... <span x-text="progress"></span>%
-                    </span>
-                </template>
-                <template x-if="downloaded">
-                    <span>✓ تم التحميل</span>
-                </template>
+
+        <!-- Alert Messages -->
+        <template x-if="alert.show">
+            <div :class="'alert alert-' + alert.type" x-text="alert.message"></div>
+        </template>
+
+        <!-- Tabs -->
+        <div class="upload-tabs">
+            <button class="upload-tab" :class="{ active: activeTab === 'single' }" @click="activeTab = 'single'">
+                ملف واحد
             </button>
-            
-            <a href="{{ url_for('main.books') }}" class="btn wizard-btn">
-                تصفح المكتبة
-            </a>
+            <button class="upload-tab" :class="{ active: activeTab === 'folder' }" @click="activeTab = 'folder'">
+                مجلد كامل
+            </button>
         </div>
-        
-        <!-- Books to download -->
-        <div x-show="showBooks" style="margin-top:24px;text-align:right;" x-cloak>
-            <p class="text-muted" style="font-size:0.85rem;margin-bottom:12px;">سيتم تحميل:</p>
-            <ul style="font-size:0.85rem;color:var(--text-secondary);">
-                <template x-for="book in starterBooks" :key="book.id">
-                    <li style="padding:4px 0;display:flex;justify-content:space-between;">
-                        <span x-text="book.title"></span>
-                        <span x-show="book.downloaded" style="color:var(--success);">✓</span>
-                    </li>
-                </template>
-            </ul>
+
+        <!-- Single File Upload -->
+        <div class="upload-panel" x-show="activeTab === 'single'">
+            <div class="form-group">
+                <label>مسار الملف</label>
+                <div style="display: flex; gap: var(--spacing-sm);">
+                    <input type="text" x-model="singleFile.path" placeholder="C:\Books\book.txt" dir="ltr" style="flex: 1;">
+                    <button type="button" class="btn" @click="browseFile()" :disabled="isBrowsing">
+                        <span x-show="!isBrowsing">استعراض</span>
+                        <span x-show="isBrowsing">...</span>
+                    </button>
+                </div>
+                <p class="form-hint">اختر ملف الكتاب (txt أو md)</p>
+            </div>
+
+            <div class="form-group">
+                <label>التصنيف</label>
+                <div style="display: flex; gap: var(--spacing-sm);">
+                    <select x-model="singleFile.category" style="flex: 1;">
+                        <option value="">-- اختر التصنيف --</option>
+                        <template x-for="cat in categories" :key="cat.id + '-' + cat.is_custom">
+                            <option :value="cat.id + '|' + cat.is_custom" x-text="cat.name"></option>
+                        </template>
+                    </select>
+                    <button type="button" class="btn" @click="showNewCategoryDialog = true" title="إضافة قسم جديد">+</button>
+                </div>
+            </div>
+
+            <div class="upload-actions">
+                <button class="btn btn-primary" @click="uploadSingleFile()" :disabled="!singleFile.path || !singleFile.category || isUploading">
+                    رفع الملف
+                </button>
+            </div>
         </div>
-        
-        <!-- Skip -->
-        <a href="{{ url_for('main.search') }}" class="wizard-skip">
-            تخطي والبدء بدون تحميل
-        </a>
-        
-        <!-- Note about OpenITI -->
-        <p style="margin-top:48px;font-size:0.75rem;color:var(--text-muted);">
-            الكتب مصدرها مشروع OpenITI للنصوص الإسلامية المفتوحة
-        </p>
+
+        <!-- Folder Upload -->
+        <div class="upload-panel" x-show="activeTab === 'folder'">
+            <div class="form-group">
+                <label>مسار المجلد</label>
+                <div style="display: flex; gap: var(--spacing-sm);">
+                    <input type="text" x-model="folder.path" placeholder="C:\Books\" dir="ltr" style="flex: 1;">
+                    <button type="button" class="btn" @click="browseFolder()" :disabled="isBrowsing">
+                        <span x-show="!isBrowsing">استعراض</span>
+                        <span x-show="isBrowsing">...</span>
+                    </button>
+                </div>
+                <p class="form-hint">اختر المجلد الذي يحتوي على ملفات الكتب</p>
+            </div>
+
+            <div class="upload-actions" style="margin-top: var(--spacing-md); margin-bottom: var(--spacing-lg);">
+                <button class="btn" @click="scanFolder()" :disabled="!folder.path || isScanning">
+                    <span x-show="!isScanning">فحص المجلد</span>
+                    <span x-show="isScanning">جاري الفحص...</span>
+                </button>
+            </div>
+
+            <template x-if="folder.files.length > 0">
+                <div>
+                    <label style="display: block; margin-bottom: var(--spacing-sm); font-weight: 500;">
+                        الملفات الموجودة (<span x-text="folder.files.length"></span>)
+                    </label>
+                    <div class="file-list">
+                        <template x-for="file in folder.files" :key="file.name">
+                            <div class="file-item">
+                                <span class="file-item-name" x-text="file.name"></span>
+                                <span class="file-item-size" x-text="formatSize(file.size)"></span>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+            <template x-if="folder.scanned && folder.files.length === 0">
+                <div class="file-list">
+                    <div class="file-list-empty">لا توجد ملفات كتب في هذا المجلد</div>
+                </div>
+            </template>
+
+            <div class="form-group">
+                <label>التصنيف</label>
+                <div style="display: flex; gap: var(--spacing-sm);">
+                    <select x-model="folder.category" style="flex: 1;">
+                        <option value="">-- اختر التصنيف --</option>
+                        <option value="auto">تصنيف تلقائي (من بيانات الكتاب)</option>
+                        <template x-for="cat in categories" :key="cat.id + '-' + cat.is_custom">
+                            <option :value="cat.id + '|' + cat.is_custom" x-text="cat.name"></option>
+                        </template>
+                    </select>
+                    <button type="button" class="btn" @click="showNewCategoryDialog = true" title="إضافة قسم جديد">+</button>
+                </div>
+                <p class="form-hint" x-show="folder.category !== 'auto'">سيتم تطبيق هذا التصنيف على جميع الكتب</p>
+                <p class="form-hint" x-show="folder.category === 'auto'" style="color: var(--primary-color);">سيتم تصنيف كل كتاب تلقائياً بناءً على حقل الموضوع (Subject) في ملفات OpenITI</p>
+            </div>
+
+            <div class="upload-actions">
+                <button class="btn btn-primary" @click="uploadFolder()" :disabled="folder.files.length === 0 || !folder.category || isUploading">
+                    رفع جميع الكتب
+                </button>
+            </div>
+        </div>
+
+        <!-- Format Help -->
+        <div class="format-help">
+            <div class="format-help-header" @click="showFormatHelp = !showFormatHelp">
+                <span>تنسيق الملفات المطلوب</span>
+                <span x-text="showFormatHelp ? '▲' : '▼'"></span>
+            </div>
+            <div class="format-help-content" x-show="showFormatHelp" x-text="formatHelpText"></div>
+        </div>
+
+        <!-- Progress Overlay -->
+        <template x-if="isUploading">
+            <div class="progress-overlay">
+                <div class="progress-dialog">
+                    <h3>جاري رفع الكتب</h3>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" :style="'width: ' + uploadProgress + '%'"></div>
+                    </div>
+                    <p class="progress-status" x-text="uploadStatus"></p>
+                </div>
+            </div>
+        </template>
+
+        <!-- New Category Dialog -->
+        <template x-if="showNewCategoryDialog">
+            <div class="progress-overlay" @click.self="showNewCategoryDialog = false">
+                <div class="progress-dialog" style="text-align: right;">
+                    <h3 style="margin-bottom: var(--spacing-lg);">إضافة قسم جديد</h3>
+                    <div style="margin-bottom: var(--spacing-lg);">
+                        <label style="display: block; margin-bottom: var(--spacing-sm); font-weight: 500;">اسم القسم</label>
+                        <input type="text" x-model="newCategoryName" placeholder="أدخل اسم القسم" @keyup.enter="createCategory()" style="width: 100%; padding: var(--spacing-md); border: 1px solid var(--border-color); border-radius: var(--radius-md); font-size: 1rem; font-family: inherit; background: var(--bg-color); color: var(--text-color);">
+                    </div>
+                    <div style="display: flex; gap: var(--spacing-md); justify-content: flex-end;">
+                        <button class="btn" @click="showNewCategoryDialog = false; newCategoryName = ''">إلغاء</button>
+                        <button class="btn btn-primary" @click="createCategory()" :disabled="!newCategoryName.trim() || isCreatingCategory">
+                            <span x-show="!isCreatingCategory">إضافة</span>
+                            <span x-show="isCreatingCategory">جاري الإضافة...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
     </div>
-    
+
     <script>
-    function wizardApp() {
+    function uploadPage() {
         return {
-            downloading: false,
-            downloaded: false,
-            progress: 0,
-            showBooks: false,
-            
-            starterBooks: [
-                { id: 'bukhari', title: 'صحيح البخاري', downloaded: false },
-                { id: 'muslim', title: 'صحيح مسلم', downloaded: false },
-                { id: 'abudawud', title: 'سنن أبي داود', downloaded: false },
-                { id: 'tirmidhi', title: 'سنن الترمذي', downloaded: false },
-                { id: 'nasai', title: 'سنن النسائي', downloaded: false },
-                { id: 'ibnmajah', title: 'سنن ابن ماجه', downloaded: false },
-                { id: 'malik', title: 'موطأ مالك', downloaded: false },
-                { id: 'ahmad', title: 'مسند أحمد', downloaded: false },
-                { id: 'darimi', title: 'سنن الدارمي', downloaded: false },
-            ],
-            
-            async downloadStarterBooks() {
-                this.downloading = true;
-                this.showBooks = true;
-                
-                for (let i = 0; i < this.starterBooks.length; i++) {
-                    const book = this.starterBooks[i];
-                    
-                    try {
-                        // Simulate download - replace with actual API call
-                        await new Promise(resolve => setTimeout(resolve, 500));
-                        // await fetch('/api/openiti/books/' + book.id + '/download', { method: 'POST' });
-                        
-                        book.downloaded = true;
-                        this.progress = Math.round(((i + 1) / this.starterBooks.length) * 100);
-                    } catch (error) {
-                        console.error('Failed to download:', book.title, error);
-                    }
+            activeTab: 'single',
+            categories: [],
+            showFormatHelp: false,
+            formatHelpText: '',
+            isScanning: false,
+            isUploading: false,
+            isBrowsing: false,
+            uploadProgress: 0,
+            uploadStatus: '',
+            showNewCategoryDialog: false,
+            newCategoryName: '',
+            isCreatingCategory: false,
+
+            alert: {
+                show: false,
+                type: 'success',
+                message: ''
+            },
+
+            singleFile: {
+                path: '',
+                category: ''  // Format: "id|is_custom"
+            },
+
+            folder: {
+                path: '',
+                category: '',  // Format: "id|is_custom"
+                files: [],
+                scanned: false
+            },
+
+            async init() {
+                await this.loadCategories();
+                await this.loadFormatHelp();
+            },
+
+            async loadCategories() {
+                try {
+                    const response = await fetch('/api/upload/categories');
+                    const data = await response.json();
+                    this.categories = data.categories || [];
+                } catch (error) {
+                    console.error('Failed to load categories:', error);
+                    this.showAlert('error', 'فشل تحميل التصنيفات');
                 }
-                
-                this.downloading = false;
-                this.downloaded = true;
-                
-                // Mark wizard as complete
-                localStorage.setItem('wizardComplete', 'true');
-                
-                // Redirect after short delay
+            },
+
+            async loadFormatHelp() {
+                try {
+                    const response = await fetch('/api/upload/format-help');
+                    const data = await response.json();
+                    this.formatHelpText = data.help || '';
+                } catch (error) {
+                    console.error('Failed to load format help:', error);
+                }
+            },
+
+            async browseFile() {
+                this.isBrowsing = true;
+                try {
+                    const response = await fetch('/api/upload/browse-file', { method: 'POST' });
+                    const data = await response.json();
+                    if (data.status === 'success' && data.path) {
+                        this.singleFile.path = data.path;
+                    }
+                } catch (error) {
+                    console.error('Browse error:', error);
+                    this.showAlert('error', 'فشل فتح نافذة اختيار الملف');
+                } finally {
+                    this.isBrowsing = false;
+                }
+            },
+
+            async browseFolder() {
+                this.isBrowsing = true;
+                try {
+                    const response = await fetch('/api/upload/browse-folder', { method: 'POST' });
+                    const data = await response.json();
+                    if (data.status === 'success' && data.path) {
+                        this.folder.path = data.path;
+                        // Auto-scan the folder after selection
+                        await this.scanFolder();
+                    }
+                } catch (error) {
+                    console.error('Browse error:', error);
+                    this.showAlert('error', 'فشل فتح نافذة اختيار المجلد');
+                } finally {
+                    this.isBrowsing = false;
+                }
+            },
+
+            async createCategory() {
+                if (!this.newCategoryName.trim() || this.isCreatingCategory) return;
+
+                this.isCreatingCategory = true;
+                try {
+                    const response = await fetch('/api/categories', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: this.newCategoryName.trim() })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'success' || data.status === 'exists') {
+                        // Reload categories and select the new one
+                        await this.loadCategories();
+                        // Find the new category (custom categories are is_custom: true)
+                        const newCat = this.categories.find(c => c.name === this.newCategoryName.trim() && c.is_custom);
+                        if (newCat) {
+                            const catValue = newCat.id + '|' + newCat.is_custom;
+                            if (this.activeTab === 'single') {
+                                this.singleFile.category = catValue;
+                            } else {
+                                this.folder.category = catValue;
+                            }
+                        }
+                        this.showNewCategoryDialog = false;
+                        this.newCategoryName = '';
+                        this.showAlert('success', 'تم إضافة القسم بنجاح');
+                    } else {
+                        this.showAlert('error', data.message || 'فشل إنشاء القسم');
+                    }
+                } catch (error) {
+                    console.error('Failed to create category:', error);
+                    this.showAlert('error', 'حدث خطأ أثناء إنشاء القسم');
+                } finally {
+                    this.isCreatingCategory = false;
+                }
+            },
+
+            parseCategory(categoryValue) {
+                // Parse "id|is_custom" format
+                if (!categoryValue) return { id: null, is_custom: false };
+                const [id, isCustom] = categoryValue.split('|');
+                return {
+                    id: parseInt(id),
+                    is_custom: isCustom === 'true'
+                };
+            },
+
+            async scanFolder() {
+                if (!this.folder.path) return;
+
+                this.isScanning = true;
+                this.folder.files = [];
+                this.folder.scanned = false;
+
+                try {
+                    const response = await fetch('/api/upload/scan', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ folder_path: this.folder.path })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        this.folder.files = data.files || [];
+                        this.folder.scanned = true;
+                        if (this.folder.files.length === 0) {
+                            this.showAlert('warning', 'لم يتم العثور على ملفات كتب في هذا المجلد');
+                        }
+                    } else {
+                        this.showAlert('error', data.message || 'فشل فحص المجلد');
+                    }
+                } catch (error) {
+                    console.error('Scan error:', error);
+                    this.showAlert('error', 'فشل فحص المجلد: ' + error.message);
+                } finally {
+                    this.isScanning = false;
+                }
+            },
+
+            async uploadSingleFile() {
+                if (!this.singleFile.path || !this.singleFile.category) return;
+
+                const cat = this.parseCategory(this.singleFile.category);
+                this.isUploading = true;
+                this.uploadProgress = 0;
+                this.uploadStatus = 'جاري رفع الملف...';
+
+                try {
+                    const response = await fetch('/api/upload/file', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            file_path: this.singleFile.path,
+                            category_id: cat.id,
+                            is_custom: cat.is_custom
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        this.uploadProgress = 100;
+                        this.showAlert('success', `تم رفع الكتاب "${data.title}" بنجاح (${data.pages} صفحة)`);
+                        this.singleFile.path = '';
+                    } else {
+                        this.showAlert('error', data.message || 'فشل رفع الملف');
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    this.showAlert('error', 'فشل رفع الملف: ' + error.message);
+                } finally {
+                    this.isUploading = false;
+                }
+            },
+
+            async uploadFolder() {
+                if (this.folder.files.length === 0 || !this.folder.category) return;
+
+                const isAutoAssign = this.folder.category === 'auto';
+                const cat = isAutoAssign ? { id: null, is_custom: false } : this.parseCategory(this.folder.category);
+                this.isUploading = true;
+                this.uploadProgress = 0;
+                this.uploadStatus = 'جاري رفع الكتب...';
+
+                try {
+                    const response = await fetch('/api/upload/folder', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            folder_path: this.folder.path,
+                            category_id: cat.id,
+                            is_custom: cat.is_custom,
+                            auto_assign: isAutoAssign
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status === 'success') {
+                        this.uploadProgress = 100;
+                        const failed = data.total - data.success;
+                        const msg = `تم رفع ${data.success} من ${data.total} كتاب بنجاح`;
+                        if (failed > 0) {
+                            this.showAlert('warning', msg + ` (${failed} فشل)`);
+                        } else {
+                            this.showAlert('success', msg);
+                        }
+                        this.folder.files = [];
+                        this.folder.scanned = false;
+                    } else {
+                        this.showAlert('error', data.message || 'فشل رفع الكتب');
+                    }
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    this.showAlert('error', 'فشل رفع الكتب: ' + error.message);
+                } finally {
+                    this.isUploading = false;
+                }
+            },
+
+            showAlert(type, message) {
+                this.alert = { show: true, type, message };
                 setTimeout(() => {
-                    window.location.href = '/search';
-                }, 1500);
+                    this.alert.show = false;
+                }, 5000);
+            },
+
+            formatSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
             }
         };
     }

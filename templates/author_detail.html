@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}المؤلف - غرناطة{% endblock %}
+
+{% block content %}
+<div class="container" x-data="authorDetailPage()" x-init="init()">
+    <!-- Header -->
+    <div style="display: flex; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-lg);">
+        <a href="/authors" class="btn" style="padding: var(--spacing-sm);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+            </svg>
+        </a>
+        <div style="flex: 1;">
+            <h2 class="section-title" style="margin: 0;" x-text="author.name || 'جاري التحميل...'"></h2>
+            <div class="text-muted" x-show="author.death_date" x-text="'(ت ' + author.death_date + ' هـ)'"></div>
+        </div>
+        <div style="display: flex; gap: var(--spacing-sm);" x-show="!isLoading && author.id">
+            <button class="btn" @click="openEditModal()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                تعديل
+            </button>
+            <button class="btn btn-danger" @click="confirmDelete()">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                </svg>
+                حذف
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading" x-show="isLoading">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Author Bio -->
+    <div x-show="!isLoading && author.bio" style="margin-bottom: var(--spacing-xl);">
+        <h3 class="section-title">نبذة عن المؤلف</h3>
+        <p class="text-muted" x-text="author.bio"></p>
+    </div>
+
+    <!-- Author's Books -->
+    <div x-show="!isLoading">
+        <h3 class="section-title">كتب المؤلف (<span x-text="books.length"></span>)</h3>
+
+        <template x-for="book in books" :key="book.id">
+            <div class="book-item">
+                <div class="book-title">
+                    <a :href="'/book/' + book.id" x-text="book.title"></a>
+                </div>
+            </div>
+        </template>
+
+        <!-- Empty State -->
+        <div class="empty-state" x-show="books.length === 0">
+            <div class="empty-state-icon">&#128218;</div>
+            <div class="empty-state-text">لا توجد كتب لهذا المؤلف</div>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div class="empty-state" x-show="!isLoading && error">
+        <div class="empty-state-icon">&#9888;</div>
+        <div class="empty-state-text" x-text="error"></div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="overlay" :class="{ 'active': showEditModal }" @click="showEditModal = false"></div>
+    <div class="edit-modal" x-show="showEditModal" x-cloak>
+        <div class="edit-modal-header">
+            <span>تعديل بطاقة المؤلف</span>
+            <button class="edit-modal-close" @click="showEditModal = false">&times;</button>
+        </div>
+        <div class="edit-modal-body">
+            <div class="edit-form-grid">
+                <div class="edit-form-group full-width">
+                    <label>الاسم</label>
+                    <input type="text" class="input-field" x-model="editForm.name">
+                </div>
+                <div class="edit-form-group">
+                    <label>تاريخ الوفاة (هـ)</label>
+                    <input type="text" class="input-field" x-model="editForm.death_date">
+                </div>
+                <div class="edit-form-group full-width">
+                    <label>نبذة عن المؤلف</label>
+                    <textarea class="input-field" rows="4" x-model="editForm.bio"></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="edit-modal-footer">
+            <button class="btn" @click="showEditModal = false">إلغاء</button>
+            <button class="btn btn-primary" @click="saveAuthor()">حفظ التغييرات</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+.btn-danger:hover {
+    background: #c82333;
+}
+.edit-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 500px;
+    max-height: 85vh;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-popover);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+}
+.edit-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+}
+.edit-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.edit-modal-body {
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+}
+.edit-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+}
+.edit-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+.edit-form-group.full-width {
+    grid-column: span 2;
+}
+.edit-form-group label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.edit-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function authorDetailPage() {
+    return {
+        authorId: '{{ author_id }}',
+        author: {},
+        books: [],
+        isLoading: true,
+        error: null,
+        showEditModal: false,
+        editForm: {},
+
+        async init() {
+            await this.loadAuthorDetails();
+        },
+
+        async loadAuthorDetails() {
+            this.isLoading = true;
+            this.error = null;
+            try {
+                const response = await fetch(`/api/authors/${encodeURIComponent(this.authorId)}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    this.error = 'المؤلف غير موجود';
+                    return;
+                }
+
+                this.author = {
+                    id: data.id,
+                    name: data.name,
+                    death_date: data.death_date,
+                    bio: data.bio
+                };
+                this.books = data.books || [];
+            } catch (error) {
+                console.error('Failed to load author details:', error);
+                this.error = 'حدث خطأ أثناء تحميل البيانات';
+            } finally {
+                this.isLoading = false;
+            }
+        },
+
+        openEditModal() {
+            this.editForm = {
+                name: this.author.name || '',
+                death_date: this.author.death_date || '',
+                bio: this.author.bio || ''
+            };
+            this.showEditModal = true;
+        },
+
+        async saveAuthor() {
+            try {
+                const response = await fetch(`/api/authors/${encodeURIComponent(this.authorId)}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(this.editForm)
+                });
+
+                if (response.ok) {
+                    this.showEditModal = false;
+                    await this.loadAuthorDetails();
+                    alert('تم حفظ التغييرات بنجاح');
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'حدث خطأ أثناء الحفظ');
+                }
+            } catch (error) {
+                console.error('Failed to save author:', error);
+                alert('حدث خطأ أثناء الحفظ');
+            }
+        },
+
+        async confirmDelete() {
+            const bookCount = this.books.length;
+            let message = 'هل أنت متأكد من حذف هذا المؤلف؟';
+            if (bookCount > 0) {
+                message += `\n\nهذا المؤلف لديه ${bookCount} كتاب. سيتم فك ارتباط الكتب بالمؤلف.`;
+            }
+
+            if (!confirm(message)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/authors/${encodeURIComponent(this.authorId)}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    alert('تم حذف المؤلف بنجاح');
+                    window.location.href = '/authors';
+                } else {
+                    const data = await response.json();
+                    alert(data.error || 'حدث خطأ أثناء الحذف');
+                }
+            } catch (error) {
+                console.error('Failed to delete author:', error);
+                alert('حدث خطأ أثناء الحذف');
+            }
+        }
+    };
+}
+</script>
+{% endblock %}

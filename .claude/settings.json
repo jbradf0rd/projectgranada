@@ -1,19 +1,15 @@
 {
-  permissions {
-    allow [
-      Bash(npm),
-      Bash(pip),
-      Bash(python),
-      Bash(flask),
-      Bash(mkdir),
-      Bash(cat),
-      Bash(ls),
-      Bash(cd),
-      Bash(git)
-    ],
-    deny [
-      Bash(rm -rf ),
-      Bash(del s q C)
+  "permissions": {
+    "allow": [
+      "Bash(npm:*)",
+      "Bash(pip:*)",
+      "Bash(python:*)",
+      "Bash(flask:*)",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(cd:*)",
+      "Bash(git:*)"
     ]
   }
 }

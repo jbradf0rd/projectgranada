@@ -1,186 +1,391 @@
 {% extends "base.html" %}
 
-{% block title %}أقسام - غرناطة{% endblock %}
+{% block title %}الأقسام - غرناطة{% endblock %}
 
 {% block content %}
-<div x-data="categoriesApp()" x-init="init()">
-    
-    <!-- Custom Categories Section (Granada) -->
-    <section class="custom-categories-section" x-show="customCategories.length > 0 || showAddCustom">
-        <div class="section-header">
-            <span class="section-title">أقسامي المخصصة</span>
-            <button class="section-add-btn" @click="showAddCustom = true">
-                + إضافة قسم
-            </button>
-        </div>
-        
-        <!-- Add custom category form -->
-        <div x-show="showAddCustom" class="mb-4" style="padding: 0 8px;">
-            <div class="flex gap-2">
-                <input 
-                    type="text" 
-                    class="form-input" 
-                    placeholder="اسم القسم الجديد..."
-                    x-model="newCategoryName"
-                    @keyup.enter="addCustomCategory()"
-                    style="flex:1;"
-                >
-                <button class="btn btn-primary" @click="addCustomCategory()">إضافة</button>
-                <button class="btn" @click="showAddCustom = false; newCategoryName = ''">إلغاء</button>
-            </div>
-        </div>
-        
-        <!-- Custom categories list -->
-        <template x-for="cat in customCategories" :key="cat.id">
+<div class="container" x-data="categoriesPage()">
+    <!-- Header with Create Button -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+        <h2 style="margin: 0;">الأقسام</h2>
+        <button class="btn btn-primary" @click="showCreateDialog = true">إضافة قسم جديد</button>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading" x-show="isLoading">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Categories List -->
+    <div x-show="!isLoading && allCategories.length > 0">
+        <template x-for="(category, index) in allCategories" :key="category.id + '-' + (category.is_custom ? 'custom' : 'main')">
             <div class="category-item">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <a :href="'/category/custom/' + cat.id">
-                        <span class="category-name" x-text="cat.name"></span>
-                    </a>
-                    <div class="flex items-center gap-2">
-                        <span class="category-count" x-text="cat.book_count || 0"></span>
-                        <button @click="editCustomCategory(cat)" style="color:var(--text-muted);padding:4px;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;">
-                                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"></path>
-                            </svg>
-                        </button>
-                        <button @click="deleteCustomCategory(cat)" style="color:var(--danger);padding:4px;">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;">
-                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                            </svg>
-                        </button>
-                    </div>
+                <a :href="'/categories/' + category.id" class="category-name" style="text-decoration: none; color: inherit;">
+                    <span class="category-number" x-text="toArabicNumeral(index + 1) + '-'"></span>
+                    <span x-text="category.name"></span>
+                </a>
+                <div style="display: flex; align-items: center; gap: var(--spacing-sm);">
+                    <span class="category-count" x-text="'(' + (category.book_count || 0) + ')'"></span>
+                    <button class="edit-btn" @click.stop="openCategoryDetails(category)" title="تعديل">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                    </button>
                 </div>
             </div>
         </template>
-    </section>
-    
-    <!-- Library Categories Section -->
-    <section>
-        <div class="section-header" x-show="customCategories.length > 0">
-            <span class="section-title">أقسام المكتبة</span>
-        </div>
-        
-        <!-- Loading -->
-        <div class="loading-state" x-show="loading" x-cloak>
-            <div class="loading-spinner"></div>
-            جاري التحميل...
-        </div>
-        
-        <!-- Categories list -->
-        <template x-for="cat in categories" :key="cat.id">
-            <div class="category-item">
-                <a :href="'/category/' + cat.id">
-                    <span class="category-name">
-                        <b x-text="cat.number + '-'"></b>
-                        <span x-text="cat.name"></span>
-                    </span>
-                    <span class="category-count" x-text="cat.book_count"></span>
-                </a>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" x-show="!isLoading && allCategories.length === 0">
+        <div class="empty-state-icon">&#128193;</div>
+        <div class="empty-state-text">لا توجد أقسام</div>
+        <div class="text-muted" style="margin-bottom: var(--spacing-lg);">أنشئ قسماً جديداً لتنظيم كتبك</div>
+        <button class="btn btn-primary" @click="showCreateDialog = true">إضافة قسم جديد</button>
+    </div>
+
+    <!-- Create Category Dialog -->
+    <div class="modal-overlay" x-show="showCreateDialog" @click.self="showCreateDialog = false" style="display: none;" :style="showCreateDialog && {display: 'flex'}">
+        <div class="modal-content" @click.stop>
+            <h3 style="margin-bottom: var(--spacing-lg);">إضافة قسم جديد</h3>
+            <div style="margin-bottom: var(--spacing-lg);">
+                <label style="display: block; margin-bottom: var(--spacing-sm); font-weight: 500;">اسم القسم</label>
+                <input type="text" x-model="newCategoryName" placeholder="أدخل اسم القسم" @keyup.enter="createCategory()" class="modal-input">
             </div>
-        </template>
-    </section>
+            <div style="display: flex; gap: var(--spacing-md); justify-content: flex-end;">
+                <button class="btn" @click="showCreateDialog = false; newCategoryName = ''">إلغاء</button>
+                <button class="btn btn-primary" @click="createCategory()" :disabled="!newCategoryName.trim() || isCreating">
+                    <span x-show="!isCreating">إضافة</span>
+                    <span x-show="isCreating">جاري الإضافة...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Details Modal -->
+    <div class="modal-overlay" x-show="showDetailsDialog" @click.self="closeDetailsDialog()" style="display: none;" :style="showDetailsDialog && {display: 'flex'}">
+        <div class="modal-content" @click.stop style="max-width: 500px;">
+            <h3 style="margin-bottom: var(--spacing-lg);">تفاصيل القسم</h3>
+
+            <div style="margin-bottom: var(--spacing-lg);">
+                <label style="display: block; margin-bottom: var(--spacing-sm); font-weight: 500;">اسم القسم</label>
+                <input type="text" x-model="selectedCategory.name" class="modal-input" :disabled="!selectedCategory.is_custom">
+                <p class="form-hint" x-show="!selectedCategory.is_custom">الأقسام الأساسية لا يمكن تعديلها</p>
+            </div>
+
+            <div style="margin-bottom: var(--spacing-lg);">
+                <label style="display: block; margin-bottom: var(--spacing-sm); font-weight: 500;">عدد الكتب</label>
+                <p style="padding: var(--spacing-sm) 0;" x-text="selectedCategory.book_count || 0"></p>
+            </div>
+
+            <div style="display: flex; gap: var(--spacing-md); justify-content: space-between;">
+                <button class="btn btn-danger" @click="confirmDelete()" x-show="selectedCategory.is_custom" :disabled="isDeleting">
+                    حذف القسم
+                </button>
+                <div style="display: flex; gap: var(--spacing-md); margin-right: auto;">
+                    <button class="btn" @click="closeDetailsDialog()">إغلاق</button>
+                    <button class="btn btn-primary" @click="updateCategory()" x-show="selectedCategory.is_custom" :disabled="!selectedCategory.name.trim() || isUpdating">
+                        <span x-show="!isUpdating">حفظ</span>
+                        <span x-show="isUpdating">جاري الحفظ...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" x-show="showDeleteDialog" @click.self="showDeleteDialog = false" style="display: none;" :style="showDeleteDialog && {display: 'flex'}">
+        <div class="modal-content" @click.stop style="max-width: 500px;">
+            <h3 style="margin-bottom: var(--spacing-lg); color: var(--danger);">حذف القسم</h3>
+
+            <p style="margin-bottom: var(--spacing-lg);">
+                هل أنت متأكد من حذف قسم "<span x-text="selectedCategory.name"></span>"؟
+            </p>
+
+            <template x-if="selectedCategory.book_count > 0">
+                <div style="margin-bottom: var(--spacing-lg);">
+                    <p style="margin-bottom: var(--spacing-md); font-weight: 500;">يحتوي هذا القسم على <span x-text="selectedCategory.book_count"></span> كتاب. اختر ما تريد فعله:</p>
+
+                    <div style="display: flex; flex-direction: column; gap: var(--spacing-sm);">
+                        <label style="display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer;">
+                            <input type="radio" name="deleteAction" value="transfer" x-model="deleteAction">
+                            <span>نقل الكتب إلى قسم آخر</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: var(--spacing-sm); cursor: pointer;">
+                            <input type="radio" name="deleteAction" value="delete" x-model="deleteAction">
+                            <span>حذف جميع الكتب</span>
+                        </label>
+                    </div>
+
+                    <div x-show="deleteAction === 'transfer'" style="margin-top: var(--spacing-md);">
+                        <label style="display: block; margin-bottom: var(--spacing-sm);">نقل إلى:</label>
+                        <select x-model="transferToCategoryId" class="modal-input">
+                            <option value="">-- اختر القسم --</option>
+                            <template x-for="cat in allCategories.filter(c => c.id !== selectedCategory.id || c.is_custom !== selectedCategory.is_custom)" :key="cat.id + '-' + (cat.is_custom ? 'custom' : 'main')">
+                                <option :value="cat.id + '|' + (cat.is_custom ? 'custom' : 'main')" x-text="cat.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+            </template>
+
+            <div style="display: flex; gap: var(--spacing-md); justify-content: flex-end;">
+                <button class="btn" @click="showDeleteDialog = false">إلغاء</button>
+                <button class="btn btn-danger" @click="executeDelete()" :disabled="isDeleting || (selectedCategory.book_count > 0 && !deleteAction) || (deleteAction === 'transfer' && !transferToCategoryId)">
+                    <span x-show="!isDeleting">تأكيد الحذف</span>
+                    <span x-show="isDeleting">جاري الحذف...</span>
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: var(--card-bg);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-xl);
+        max-width: 400px;
+        width: 90%;
+    }
+
+    .modal-input {
+        width: 100%;
+        padding: var(--spacing-md);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        font-size: 1rem;
+        font-family: inherit;
+        background: var(--bg-color);
+        color: var(--text-color);
+    }
+
+    .modal-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .modal-input:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .btn-danger {
+        background: var(--danger, #dc2626);
+        color: white;
+        border: none;
+    }
+
+    .btn-danger:hover {
+        background: #b91c1c;
+    }
+
+    .btn-danger:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .form-hint {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        margin-top: var(--spacing-xs);
+    }
+
+    .category-item:hover {
+        background: var(--bg-color);
+    }
+
+    .edit-btn {
+        background: none;
+        border: none;
+        padding: var(--spacing-xs);
+        cursor: pointer;
+        color: var(--text-muted);
+        border-radius: var(--radius-sm);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .edit-btn:hover {
+        color: var(--primary-color);
+        background: rgba(37, 99, 235, 0.1);
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function categoriesApp() {
+function categoriesPage() {
     return {
         categories: [],
         customCategories: [],
-        loading: true,
-        showAddCustom: false,
+        isLoading: true,
+        showCreateDialog: false,
+        showDetailsDialog: false,
+        showDeleteDialog: false,
         newCategoryName: '',
-        
-        async init() {
-            this.loading = true;
-            await Promise.all([
-                this.loadCategories(),
-                this.loadCustomCategories()
-            ]);
-            this.loading = false;
+        isCreating: false,
+        isUpdating: false,
+        isDeleting: false,
+        selectedCategory: { id: null, name: '', book_count: 0, is_custom: false },
+        originalCategoryName: '',
+        deleteAction: '',
+        transferToCategoryId: '',
+
+        get allCategories() {
+            // Combine and sort all categories
+            const custom = this.customCategories.map(c => ({ ...c, is_custom: true }));
+            const main = this.categories.map(c => ({ ...c, is_custom: false }));
+            return [...custom, ...main];
         },
-        
+
+        init() {
+            this.loadCategories();
+        },
+
         async loadCategories() {
+            this.isLoading = true;
             try {
                 const response = await fetch('/api/categories');
                 const data = await response.json();
                 this.categories = data.categories || [];
+                this.customCategories = data.custom_categories || [];
             } catch (error) {
                 console.error('Failed to load categories:', error);
-                // Sample data with Arabic numerals
-                this.categories = [
-                    { id: 1, number: '١', name: 'العقيدة', book_count: 808 },
-                    { id: 2, number: '٢', name: 'الفرق والردود', book_count: 151 },
-                    { id: 3, number: '٣', name: 'التفسير', book_count: 272 },
-                    { id: 4, number: '٤', name: 'علوم القرآن وأصول التفسير', book_count: 310 },
-                    { id: 5, number: '٥', name: 'التجويد والقراءات', book_count: 151 },
-                    { id: 6, number: '٦', name: 'كتب السنة', book_count: 1241 },
-                    { id: 7, number: '٧', name: 'شروح الحديث', book_count: 264 },
-                    { id: 8, number: '٨', name: 'التخريج والأطراف', book_count: 129 },
-                    { id: 9, number: '٩', name: 'العلل والسؤلات الحديثية', book_count: 78 },
-                    { id: 10, number: '١٠', name: 'علوم الحديث', book_count: 320 },
-                ];
+            } finally {
+                this.isLoading = false;
             }
         },
-        
-        async loadCustomCategories() {
+
+        async createCategory() {
+            if (!this.newCategoryName.trim() || this.isCreating) return;
+
+            this.isCreating = true;
             try {
-                const response = await fetch('/api/custom-categories');
-                const data = await response.json();
-                this.customCategories = data.categories || [];
-            } catch (error) {
-                console.error('Failed to load custom categories:', error);
-                this.customCategories = [];
-            }
-        },
-        
-        async addCustomCategory() {
-            if (!this.newCategoryName.trim()) return;
-            
-            try {
-                const response = await fetch('/api/custom-categories', {
+                const response = await fetch('/api/categories', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: this.newCategoryName })
+                    body: JSON.stringify({ name: this.newCategoryName.trim() })
                 });
+
                 const data = await response.json();
-                this.customCategories.push(data.category);
-                this.newCategoryName = '';
-                this.showAddCustom = false;
+
+                if (data.status === 'success' || data.status === 'exists') {
+                    this.showCreateDialog = false;
+                    this.newCategoryName = '';
+                    await this.loadCategories();
+                } else {
+                    alert(data.message || 'فشل إنشاء القسم');
+                }
             } catch (error) {
-                console.error('Failed to add category:', error);
-                // For testing without backend
-                this.customCategories.push({
-                    id: Date.now(),
-                    name: this.newCategoryName,
-                    book_count: 0
-                });
-                this.newCategoryName = '';
-                this.showAddCustom = false;
+                console.error('Failed to create category:', error);
+                alert('حدث خطأ أثناء إنشاء القسم');
+            } finally {
+                this.isCreating = false;
             }
         },
-        
-        editCustomCategory(cat) {
-            const newName = prompt('اسم القسم الجديد:', cat.name);
-            if (newName && newName !== cat.name) {
-                cat.name = newName;
-                // TODO: Save to API
-            }
+
+        openCategoryDetails(category) {
+            this.selectedCategory = { ...category };
+            this.originalCategoryName = category.name;
+            this.showDetailsDialog = true;
         },
-        
-        async deleteCustomCategory(cat) {
-            if (!confirm('هل أنت متأكد من حذف هذا القسم؟')) return;
-            
+
+        closeDetailsDialog() {
+            this.showDetailsDialog = false;
+            this.selectedCategory = { id: null, name: '', book_count: 0, is_custom: false };
+        },
+
+        async updateCategory() {
+            if (!this.selectedCategory.name.trim() || this.isUpdating) return;
+            if (this.selectedCategory.name === this.originalCategoryName) {
+                this.closeDetailsDialog();
+                return;
+            }
+
+            this.isUpdating = true;
             try {
-                await fetch('/api/custom-categories/' + cat.id, { method: 'DELETE' });
-                this.customCategories = this.customCategories.filter(c => c.id !== cat.id);
+                const response = await fetch(`/api/categories/${this.selectedCategory.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: this.selectedCategory.name.trim() })
+                });
+
+                if (response.ok) {
+                    await this.loadCategories();
+                    this.closeDetailsDialog();
+                } else {
+                    alert('فشل تحديث القسم');
+                }
+            } catch (error) {
+                console.error('Failed to update category:', error);
+                alert('حدث خطأ أثناء تحديث القسم');
+            } finally {
+                this.isUpdating = false;
+            }
+        },
+
+        confirmDelete() {
+            this.deleteAction = this.selectedCategory.book_count > 0 ? '' : 'delete';
+            this.transferToCategoryId = '';
+            this.showDeleteDialog = true;
+        },
+
+        async executeDelete() {
+            if (this.isDeleting) return;
+            if (this.selectedCategory.book_count > 0 && !this.deleteAction) return;
+            if (this.deleteAction === 'transfer' && !this.transferToCategoryId) return;
+
+            this.isDeleting = true;
+            try {
+                let transferTo = null;
+                if (this.deleteAction === 'transfer' && this.transferToCategoryId) {
+                    const [id, type] = this.transferToCategoryId.split('|');
+                    transferTo = { id: parseInt(id), is_custom: type === 'custom' };
+                }
+
+                const response = await fetch(`/api/categories/${this.selectedCategory.id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: this.deleteAction,
+                        transfer_to: transferTo
+                    })
+                });
+
+                if (response.ok) {
+                    this.showDeleteDialog = false;
+                    this.closeDetailsDialog();
+                    await this.loadCategories();
+                } else {
+                    const data = await response.json();
+                    alert(data.message || 'فشل حذف القسم');
+                }
             } catch (error) {
                 console.error('Failed to delete category:', error);
-                this.customCategories = this.customCategories.filter(c => c.id !== cat.id);
+                alert('حدث خطأ أثناء حذف القسم');
+            } finally {
+                this.isDeleting = false;
             }
+        },
+
+        toArabicNumeral(num) {
+            const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+            return String(num).split('').map(d => arabicNumerals[parseInt(d)]).join('');
         }
     };
 }

@@ -3,135 +3,78 @@
 {% block title %}المجموعات - غرناطة{% endblock %}
 
 {% block content %}
-<div x-data="collectionsApp()" x-init="init()">
-    
-    <!-- Header -->
-    <div class="section-header">
-        <span class="section-title">مجموعات القراءة</span>
-        <button class="section-add-btn" @click="showAddModal = true">
-            + مجموعة جديدة
+<div class="container" x-data="collectionsPage()">
+    <!-- Header with Add Button -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-lg);">
+        <h2>مجموعاتي</h2>
+        <button class="btn btn-primary" @click="showNewCollectionModal = true">
+            إضافة مجموعة
         </button>
     </div>
-    
-    <!-- Loading -->
-    <div class="loading-state" x-show="loading" x-cloak>
+
+    <!-- Loading State -->
+    <div class="loading" x-show="isLoading">
         <div class="loading-spinner"></div>
-        جاري التحميل...
     </div>
-    
-    <!-- Empty -->
-    <div class="empty-state" x-show="!loading && collections.length === 0">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:48px;height:48px;margin:0 auto 16px;display:block;opacity:0.5;">
-            <rect x="2" y="4" width="20" height="5" rx="2"></rect>
-            <path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9"></path>
-            <path d="M10 13h4"></path>
-        </svg>
-        <p>لا توجد مجموعات</p>
-        <p class="text-muted" style="margin-top:8px;font-size:0.85rem;">أنشئ مجموعة لتتبع تقدمك في القراءة</p>
-    </div>
-    
-    <!-- Collections list -->
-    <template x-for="collection in collections" :key="collection.id">
-        <div class="collection-item">
-            <!-- Collection header -->
-            <div class="collection-header" @click="collection.expanded = !collection.expanded">
-                <div class="collection-title">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{ 'open': collection.expanded }">
-                        <polyline points="9 18 15 12 9 6"></polyline>
-                    </svg>
-                    <span x-text="collection.name"></span>
-                </div>
-                <div class="collection-stats">
-                    <div class="collection-progress">
-                        <div class="collection-progress-bar" :style="'width:' + collection.progress + '%'"></div>
+
+    <!-- Collections List -->
+    <div x-show="!isLoading && collections.length > 0">
+        <template x-for="collection in collections" :key="collection.id">
+            <div class="collection-item" :class="{ 'expanded': expandedCollection === collection.id }">
+                <div class="collection-header" @click="toggleCollection(collection.id)">
+                    <div class="collection-title">
+                        <span class="collection-toggle">&#9662;</span>
+                        <span x-text="collection.name"></span>
                     </div>
-                    <span x-text="collection.progress + '%'"></span>
-                    <span>(<span x-text="collection.books.length"></span>)</span>
-                </div>
-            </div>
-            
-            <!-- Collection books -->
-            <div class="collection-books" x-show="collection.expanded" x-cloak>
-                <template x-for="book in collection.books" :key="book.id">
-                    <div class="collection-book">
-                        <div class="collection-book-title">
-                            <input type="checkbox" :checked="book.is_complete" @click="toggleComplete(collection, book)">
-                            <a :href="'/book/' + book.id" x-text="book.title"></a>
+                    <div class="collection-stats">
+                        <div class="collection-progress">
+                            <div class="collection-progress-bar" :style="'width: ' + (collection.progress * 100) + '%'"></div>
                         </div>
-                        <span 
-                            class="collection-book-status"
-                            :class="{ 'complete': book.is_complete }"
-                            x-text="book.is_complete ? '✓ مكتمل' : book.current_page ? 'صفحة ' + book.current_page : 'لم يبدأ'"
-                        ></span>
+                        <span x-text="Math.round(collection.progress * 100) + '%'"></span>
+                        <span class="collection-count" x-text="'(' + collection.book_count + ')'"></span>
                     </div>
-                </template>
-                
-                <!-- Add book to collection -->
-                <div class="collection-book" style="border-bottom:none;">
-                    <button 
-                        class="btn" 
-                        style="width:100%;" 
-                        @click="showAddBookModal = true; selectedCollection = collection"
-                    >
-                        + إضافة كتاب
-                    </button>
                 </div>
-            </div>
-        </div>
-    </template>
-    
-    <!-- Add Collection Modal -->
-    <div class="modal-overlay" x-show="showAddModal" @click.self="showAddModal = false" x-cloak>
-        <div class="modal">
-            <div class="modal-header">
-                <span class="modal-title">مجموعة جديدة</span>
-                <button class="modal-close" @click="showAddModal = false">×</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">اسم المجموعة</label>
-                    <input 
-                        type="text" 
-                        class="form-input" 
-                        placeholder="مثال: الكتب التسعة"
-                        x-model="newCollectionName"
-                    >
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn" @click="showAddModal = false">إلغاء</button>
-                <button class="btn btn-primary" @click="addCollection()">إنشاء</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Add Book to Collection Modal -->
-    <div class="modal-overlay" x-show="showAddBookModal" @click.self="showAddBookModal = false" x-cloak>
-        <div class="modal">
-            <div class="modal-header">
-                <span class="modal-title">إضافة كتاب</span>
-                <button class="modal-close" @click="showAddBookModal = false">×</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label">ابحث عن كتاب</label>
-                    <input 
-                        type="text" 
-                        class="form-input" 
-                        placeholder="اسم الكتاب..."
-                        x-model="bookSearchQuery"
-                    >
-                </div>
-                <div style="max-height:200px;overflow-y:auto;">
-                    <template x-for="book in filteredAvailableBooks" :key="book.id">
-                        <button class="checkbox-item" @click="addBookToCollection(book)">
-                            <span x-text="book.title"></span>
-                        </button>
+                <div class="collection-books">
+                    <template x-for="book in collection.books" :key="book.id">
+                        <a :href="'/book/' + book.id" class="collection-book">
+                            <div class="collection-book-title">
+                                <input type="checkbox" :checked="book.progress.is_complete" disabled>
+                                <span x-text="book.title"></span>
+                            </div>
+                            <span class="collection-book-status" :class="{ 'complete': book.progress.is_complete }">
+                                <template x-if="book.progress.is_complete">
+                                    <span>&#10003; مكتمل</span>
+                                </template>
+                                <template x-if="!book.progress.is_complete && book.progress.current_page > 1">
+                                    <span x-text="'صفحة ' + book.progress.current_page"></span>
+                                </template>
+                                <template x-if="!book.progress.is_complete && book.progress.current_page <= 1">
+                                    <span>لم يبدأ</span>
+                                </template>
+                            </span>
+                        </a>
                     </template>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn" @click="showAddBookModal = false">إلغاء</button>
+        </template>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" x-show="!isLoading && collections.length === 0">
+        <div class="empty-state-icon">&#128218;</div>
+        <div class="empty-state-text">لا توجد مجموعات</div>
+        <div class="text-muted">قم بإنشاء مجموعة لتتبع قراءاتك</div>
+    </div>
+
+    <!-- New Collection Modal -->
+    <div class="overlay" :class="{ 'active': showNewCollectionModal }" @click="showNewCollectionModal = false"></div>
+    <div class="popover" x-show="showNewCollectionModal" x-cloak style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 300px;">
+        <div class="popover-header">مجموعة جديدة</div>
+        <div style="padding: var(--spacing-md);">
+            <input type="text" class="input-field" placeholder="اسم المجموعة" x-model="newCollectionName" @keyup.enter="createCollection()">
+            <div style="display: flex; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
+                <button class="btn" style="flex: 1;" @click="showNewCollectionModal = false">إلغاء</button>
+                <button class="btn btn-primary" style="flex: 1;" @click="createCollection()">إنشاء</button>
             </div>
         </div>
     </div>
@@ -140,98 +83,42 @@
 
 {% block scripts %}
 <script>
-function collectionsApp() {
+function collectionsPage() {
     return {
         collections: [],
-        availableBooks: [],
-        loading: true,
-        
-        showAddModal: false,
+        isLoading: true,
+        expandedCollection: null,
+        showNewCollectionModal: false,
         newCollectionName: '',
-        
-        showAddBookModal: false,
-        selectedCollection: null,
-        bookSearchQuery: '',
-        
-        async init() {
-            this.loading = true;
-            await Promise.all([
-                this.loadCollections(),
-                this.loadAvailableBooks()
-            ]);
-            this.loading = false;
+
+        init() {
+            this.loadCollections();
         },
-        
+
         async loadCollections() {
+            this.isLoading = true;
             try {
                 const response = await fetch('/api/collections');
                 const data = await response.json();
-                this.collections = (data.collections || []).map(c => ({
-                    ...c,
-                    expanded: false
-                }));
+                this.collections = data.collections || [];
             } catch (error) {
                 console.error('Failed to load collections:', error);
-                // Sample data
-                this.collections = [
-                    {
-                        id: 1,
-                        name: 'الكتب التسعة',
-                        progress: 45,
-                        expanded: false,
-                        books: [
-                            { id: '1', title: 'صحيح البخاري', is_complete: true, current_page: null },
-                            { id: '2', title: 'صحيح مسلم', is_complete: false, current_page: 234 },
-                            { id: '3', title: 'سنن أبي داود', is_complete: false, current_page: null },
-                        ]
-                    },
-                    {
-                        id: 2,
-                        name: 'ابن تيمية وابن القيم',
-                        progress: 12,
-                        expanded: false,
-                        books: [
-                            { id: '4', title: 'مجموع الفتاوى', is_complete: false, current_page: 156 },
-                            { id: '5', title: 'زاد المعاد', is_complete: false, current_page: null },
-                        ]
-                    }
-                ];
+            } finally {
+                this.isLoading = false;
             }
         },
-        
-        async loadAvailableBooks() {
-            try {
-                const response = await fetch('/api/books');
-                const data = await response.json();
-                this.availableBooks = data.books || [];
-            } catch (error) {
-                console.error('Failed to load books:', error);
-                this.availableBooks = [
-                    { id: '1', title: 'صحيح البخاري' },
-                    { id: '2', title: 'صحيح مسلم' },
-                    { id: '3', title: 'سنن أبي داود' },
-                    { id: '4', title: 'مجموع الفتاوى' },
-                    { id: '5', title: 'زاد المعاد' },
-                ];
+
+        toggleCollection(collectionId) {
+            if (this.expandedCollection === collectionId) {
+                this.expandedCollection = null;
+            } else {
+                this.expandedCollection = collectionId;
             }
         },
-        
-        get filteredAvailableBooks() {
-            if (!this.bookSearchQuery) return this.availableBooks;
-            return this.availableBooks.filter(b => b.title.includes(this.bookSearchQuery));
-        },
-        
-        async addCollection() {
+
+        async createCollection() {
             if (!this.newCollectionName.trim()) return;
-            
-            const newCollection = {
-                id: Date.now(),
-                name: this.newCollectionName,
-                progress: 0,
-                expanded: false,
-                books: []
-            };
-            
+
             try {
                 const response = await fetch('/api/collections', {
                     method: 'POST',
@@ -239,54 +126,26 @@ function collectionsApp() {
                     body: JSON.stringify({ name: this.newCollectionName })
                 });
                 const data = await response.json();
-                newCollection.id = data.collection.id;
+
+                this.collections.push({
+                    id: data.id,
+                    name: this.newCollectionName,
+                    book_count: 0,
+                    progress: 0,
+                    books: []
+                });
+
+                this.newCollectionName = '';
+                this.showNewCollectionModal = false;
             } catch (error) {
                 console.error('Failed to create collection:', error);
+                alert('حدث خطأ أثناء إنشاء المجموعة');
             }
-            
-            this.collections.push(newCollection);
-            this.newCollectionName = '';
-            this.showAddModal = false;
-        },
-        
-        async addBookToCollection(book) {
-            if (!this.selectedCollection) return;
-            
-            // Check if already in collection
-            if (this.selectedCollection.books.some(b => b.id === book.id)) {
-                alert('الكتاب موجود بالفعل في المجموعة');
-                return;
-            }
-            
-            this.selectedCollection.books.push({
-                id: book.id,
-                title: book.title,
-                is_complete: false,
-                current_page: null
-            });
-            
-            this.updateProgress(this.selectedCollection);
-            this.showAddBookModal = false;
-            this.bookSearchQuery = '';
-            
-            // TODO: Save to API
-        },
-        
-        async toggleComplete(collection, book) {
-            book.is_complete = !book.is_complete;
-            this.updateProgress(collection);
-            // TODO: Save to API
-        },
-        
-        updateProgress(collection) {
-            if (collection.books.length === 0) {
-                collection.progress = 0;
-                return;
-            }
-            const complete = collection.books.filter(b => b.is_complete).length;
-            collection.progress = Math.round((complete / collection.books.length) * 100);
         }
     };
 }
 </script>
+<style>
+    [x-cloak] { display: none !important; }
+</style>
 {% endblock %}

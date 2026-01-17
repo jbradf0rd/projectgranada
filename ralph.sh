@@ -8,13 +8,9 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
     ITERATION=$((ITERATION + 1))
     echo "=== Starting iteration $ITERATION of $MAX_ITERATIONS ==="
     
-    # Run Claude with the prompt, capture output
-    OUTPUT=$(claude --print "$PROMPT" 2>&1)
+    claude -p "$PROMPT" --dangerously-skip-permissions
     
-    echo "$OUTPUT"
-    
-    # Check if complete
-    if echo "$OUTPUT" | grep -q "COMPLETE"; then
+    if grep -q "COMPLETE" activity.md; then
         echo "=== All tasks complete! ==="
         exit 0
     fi

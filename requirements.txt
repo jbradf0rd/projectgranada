@@ -1,2 +1,5 @@
-Flask==3.0.0
-python-dotenv
+# Granada v2 Dependencies
+Flask>=2.3.0
+PyArabic>=0.6.15
+pyinstaller>=6.0.0
+anthropic>=0.18.0

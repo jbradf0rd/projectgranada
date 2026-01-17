@@ -1,309 +1,1364 @@
 {% extends "base.html" %}
 
-{% block title %}{{ book.title if book else 'قراءة' }} - غرناطة{% endblock %}
+{% block title %}القراءة - غرناطة{% endblock %}
 
 {% block content %}
-<div class="reader-container" x-data="readerApp()" x-init="init()">
-    
-    <!-- Header -->
+<div class="book-reader-container" x-data="readerPage('{{ book_id }}')">
+    <!-- Reader Header -->
     <div class="reader-header">
-        <a href="/books" class="reader-back">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px;">
-                <path d="m9 18 6-6-6-6"></path>
+        <button class="reader-back-btn" @click="goBack()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
             </svg>
-        </a>
-        <h1 class="reader-title" x-text="book.title">عنوان الكتاب</h1>
-        <div class="reader-actions">
-            <!-- Table of contents -->
-            <button @click="showToc = true" title="الفهرس">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px;">
-                    <line x1="3" y1="6" x2="21" y2="6"></line>
-                    <line x1="3" y1="12" x2="21" y2="12"></line>
-                    <line x1="3" y1="18" x2="21" y2="18"></line>
-                </svg>
-            </button>
-            <!-- AI Chat (Granada) -->
-            <button @click="showChat = true" title="محادثة ذكية">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px;">
-                    <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"></path>
-                </svg>
-            </button>
-            <!-- Settings -->
-            <button @click="showSettings = !showSettings" title="إعدادات القراءة">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px;">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
-                </svg>
-            </button>
-        </div>
+        </button>
+        <a class="reader-title reader-title-link" :href="'/book/' + bookId + '/info'" x-text="book.title"></a>
+        <button class="search-icon-btn ai-toggle-btn" @click="toggleAiChat()" title="محادثة الذكاء الاصطناعي (A)" :class="{ 'active': showAiChat }">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+        </button>
     </div>
-    
-    <!-- Reader settings dropdown -->
-    <div class="popover" x-show="showSettings" @click.outside="showSettings = false" style="position:absolute;top:60px;left:16px;right:auto;" x-cloak>
-        <div class="popover-title">إعدادات القراءة</div>
-        <div style="padding:12px;">
-            <div class="form-group">
-                <label class="form-label">حجم الخط</label>
-                <input type="range" min="14" max="28" x-model="fontSize" style="width:100%;">
-                <div class="text-center text-muted" x-text="fontSize + 'px'"></div>
+
+    <!-- Main Reader Layout -->
+    <div class="reader-main-layout">
+        <!-- Content Area -->
+        <main class="book-content-area">
+            <!-- Loading State -->
+            <div class="loading" x-show="isLoading && pages.length === 0" style="min-height: 50vh;">
+                <div class="loading-spinner"></div>
             </div>
-            <div class="form-group">
-                <label class="form-label">ارتفاع السطر</label>
-                <input type="range" min="1.5" max="3" step="0.1" x-model="lineHeight" style="width:100%;">
-                <div class="text-center text-muted" x-text="lineHeight"></div>
+
+            <!-- Continuous Scroll Content -->
+            <div class="reader-scroll-container"
+                 x-ref="scrollContainer"
+                 @scroll.debounce.50ms="handleScroll()"
+                 x-show="pages.length > 0">
+
+                <!-- Floating Chapter Header - INSIDE scroll container for sticky to work -->
+                <div class="floating-chapter-header" x-show="currentChapter" x-cloak>
+                    <span x-text="currentChapter"></span>
+                </div>
+
+                <template x-for="page in pages" :key="page.page_num">
+                    <div class="reader-page-block" :data-page="page.page_num">
+                        <!-- Page Divider - Shows Volume / Page -->
+                        <div class="page-divider" :data-page="page.page_num">
+                            <span class="page-divider-text" x-text="formatVolumePage(page)"></span>
+                        </div>
+                        <!-- Page Content -->
+                        <div class="reader-page-content" x-html="formatPageContent(page.content)"></div>
+                    </div>
+                </template>
+
+                <!-- Load More Indicator -->
+                <div class="load-more-indicator" x-show="isLoadingMore">
+                    <div class="loading-spinner" style="width: 24px; height: 24px;"></div>
+                    <span>جاري تحميل المزيد...</span>
+                </div>
+
+                <!-- End of Book -->
+                <div class="end-of-book" x-show="!hasMorePages && pages.length > 0 && pages.length >= totalPages">
+                    <span>نهاية الكتاب</span>
+                </div>
             </div>
-        </div>
-        <div class="popover-divider"></div>
-        <button class="checkbox-item" @click="book.is_owned = !book.is_owned">
-            <input type="checkbox" :checked="book.is_owned">
-            <span>أملك نسخة ورقية</span>
-        </button>
-    </div>
-    
-    <!-- Content -->
-    <div class="reader-content" :style="'font-size:' + fontSize + 'px; line-height:' + lineHeight">
-        <div x-show="loading" class="loading-state">
-            <div class="loading-spinner"></div>
-            جاري التحميل...
-        </div>
-        <div x-show="!loading" x-html="pageContent"></div>
-    </div>
-    
-    <!-- Navigation -->
-    <div class="reader-nav">
-        <button @click="nextPage()" :disabled="currentPage >= totalPages">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;">
-                <path d="m9 18 6-6-6-6"></path>
+
+            <!-- Progress Slider -->
+            <div class="reader-progress-bar">
+                <div class="progress-slider-container">
+                    <span class="progress-page-label" x-text="getCurrentVolumePage()"></span>
+                    <input type="range"
+                           class="progress-slider"
+                           min="1"
+                           :max="totalPages"
+                           x-model="sliderPage"
+                           @input="onSliderInput()"
+                           @change="onSliderChange()">
+                    <span class="progress-total-label" x-text="toArabicNumerals(totalPages)"></span>
+                </div>
+            </div>
+        </main>
+
+        <!-- TOC Sidebar (Right Side) -->
+        <aside class="toc-sidebar" :class="{ 'collapsed': !sidebarPinned }">
+            <!-- Sidebar Header with Pin Toggle -->
+            <div class="sidebar-header">
+                <button @click="toggleSidebarPin()" class="pin-toggle" :title="sidebarPinned ? 'إخفاء القائمة' : 'إظهار القائمة'">
+                    <svg x-show="sidebarPinned" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                    <svg x-show="!sidebarPinned" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <span class="sidebar-title">فهرس الكتاب</span>
+            </div>
+
+            <!-- TOC Tabs -->
+            <div class="toc-tabs">
+                <button class="toc-tab" :class="{ 'active': tocTab === 'contents' }" @click="tocTab = 'contents'">المحتويات</button>
+                <button class="toc-tab" :class="{ 'active': tocTab === 'search' }" @click="tocTab = 'search'">البحث</button>
+                <button class="toc-tab" :class="{ 'active': tocTab === 'favorites' }" @click="tocTab = 'favorites'">المفضلة</button>
+                <button class="toc-tab" :class="{ 'active': tocTab === 'history' }" @click="tocTab = 'history'">السجل</button>
+            </div>
+
+            <!-- Scrollable Content Area -->
+            <div class="sidebar-content">
+                <!-- Contents Tab -->
+                <div class="toc-panel" x-show="tocTab === 'contents'">
+                    <div class="toc-loading" x-show="tocLoading" style="text-align: center; padding: var(--spacing-lg);">
+                        <div class="loading-spinner" style="width: 24px; height: 24px; margin: 0 auto;"></div>
+                        <div style="margin-top: var(--spacing-sm); color: var(--text-muted);">جاري تحميل الفهرس...</div>
+                    </div>
+                    <div class="toc-tree" x-show="!tocLoading">
+                        <template x-for="(item, idx) in toc" :key="idx">
+                            <div class="toc-tree-item" :class="{ 'active': isChapterActive(item), 'has-children': item.children && item.children.length > 0 }">
+                                <div class="toc-item-header" @click="goToTocItem(item)">
+                                    <span class="toc-item-toggle" x-show="item.children && item.children.length > 0" @click.stop="item.expanded = !item.expanded">
+                                        <svg :class="{ 'rotated': item.expanded }" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 12px; height: 12px;">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </span>
+                                    <span class="toc-item-title" x-text="item.title"></span>
+                                    <span class="toc-item-ref" x-text="toArabicNumerals(item.page)"></span>
+                                </div>
+                                <!-- Children -->
+                                <div class="toc-children" x-show="item.expanded && item.children && item.children.length > 0">
+                                    <template x-for="(child, cidx) in item.children" :key="cidx">
+                                        <div class="toc-tree-item child" :class="{ 'active': visiblePage >= child.page && (item.children[cidx+1] ? visiblePage < item.children[cidx+1].page : true) }" @click="goToTocItem(child)">
+                                            <span class="toc-item-title" x-text="child.title"></span>
+                                            <span class="toc-item-ref" x-text="toArabicNumerals(child.page)"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        <div class="empty-state" x-show="toc.length === 0 && !tocLoading">
+                            <div class="empty-state-text">لا يوجد فهرس متاح</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Search Tab -->
+                <div class="toc-panel" x-show="tocTab === 'search'">
+                    <div class="toc-search-input">
+                        <input type="text" placeholder="ابحث في هذا الكتاب..." x-model="bookSearchQuery" @keyup.enter="searchInBook()">
+                        <button @click="searchInBook()">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="toc-search-results">
+                        <template x-for="result in bookSearchResults" :key="result.page">
+                            <div class="search-result-item" @click="goToSearchResult(result)">
+                                <div class="search-result-text" x-html="result.snippet"></div>
+                                <div class="search-result-page" x-text="'صفحة ' + toArabicNumerals(result.page)"></div>
+                            </div>
+                        </template>
+                        <div class="empty-state" x-show="bookSearchResults.length === 0 && bookSearchQuery">
+                            <div class="empty-state-text">لا توجد نتائج</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Favorites Tab -->
+                <div class="toc-panel" x-show="tocTab === 'favorites'">
+                    <template x-for="(fav, index) in favorites" :key="index">
+                        <div class="favorite-item">
+                            <div class="favorite-content" @click="goToFavorite(fav)">
+                                <div class="favorite-excerpt" x-text="fav.excerpt"></div>
+                                <div class="favorite-page" x-text="'صفحة ' + toArabicNumerals(fav.page)"></div>
+                            </div>
+                            <button class="favorite-delete" @click="removeFavorite(index)">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </template>
+                    <div class="empty-state" x-show="favorites.length === 0">
+                        <div class="empty-state-text">لا توجد صفحات مفضلة</div>
+                        <div class="text-muted" style="font-size: 0.8rem;">اضغط B لإضافة الصفحة الحالية</div>
+                    </div>
+                </div>
+
+                <!-- History Tab -->
+                <div class="toc-panel" x-show="tocTab === 'history'">
+                    <template x-for="(hist, index) in readingHistory" :key="index">
+                        <div class="history-item" @click="goToHistory(hist)">
+                            <span class="history-page" x-text="'صفحة ' + toArabicNumerals(hist.page)"></span>
+                            <span class="history-time" x-text="formatTime(hist.time)"></span>
+                        </div>
+                    </template>
+                    <div class="empty-state" x-show="readingHistory.length === 0">
+                        <div class="empty-state-text">لا يوجد سجل قراءة</div>
+                    </div>
+                </div>
+            </div><!-- End sidebar-content -->
+
+            <!-- Ownership Toggle (Granada feature) -->
+            <div class="sidebar-footer">
+                <label class="popover-checkbox-item">
+                    <input type="checkbox" x-model="book.is_owned" @change="toggleOwned()">
+                    <span>أملك هذا الكتاب</span>
+                </label>
+            </div>
+        </aside>
+
+        <!-- Sidebar Expand Tab (shown when collapsed) -->
+        <button
+            x-show="!sidebarPinned"
+            @click="toggleSidebarPin()"
+            class="sidebar-expand-tab"
+            title="إظهار القائمة (T)"
+            x-cloak>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 20px; height: 20px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h7" />
             </svg>
         </button>
-        <div class="flex items-center gap-2">
-            <input 
-                type="number" 
-                class="reader-page-input" 
-                x-model.number="currentPage"
-                @change="goToPage()"
-                min="1"
-                :max="totalPages"
-            >
-            <span class="reader-page-total">/ <span x-text="totalPages"></span></span>
-        </div>
-        <button @click="prevPage()" :disabled="currentPage <= 1">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;">
-                <path d="m15 18-6-6 6-6"></path>
-            </svg>
-        </button>
-    </div>
-    
-    <!-- TOC Sidebar -->
-    <div class="reader-toc-overlay" :class="{ 'open': showToc }" @click="showToc = false"></div>
-    <div class="reader-toc" :class="{ 'open': showToc }">
-        <div class="reader-toc-header">
-            <span class="reader-toc-title">الفهرس</span>
-            <button class="reader-toc-close" @click="showToc = false">×</button>
-        </div>
-        <template x-for="item in toc" :key="item.page">
-            <a 
-                :href="'#'" 
-                class="reader-toc-item"
-                :class="{ 'active': currentPage === item.page }"
-                @click.prevent="currentPage = item.page; goToPage(); showToc = false"
-                x-text="item.title"
-            ></a>
-        </template>
-    </div>
-    
-    <!-- AI Chat Sidebar (Granada) -->
-    <div class="reader-toc-overlay" :class="{ 'open': showChat }" @click="showChat = false"></div>
-    <div class="reader-toc" :class="{ 'open': showChat }" style="display:flex;flex-direction:column;">
-        <div class="reader-toc-header">
-            <span class="reader-toc-title">محادثة ذكية</span>
-            <button class="reader-toc-close" @click="showChat = false">×</button>
-        </div>
-        
-        <!-- Chat messages -->
-        <div style="flex:1;overflow-y:auto;padding:12px;">
-            <template x-for="(msg, i) in chatMessages" :key="i">
-                <div :class="msg.role === 'user' ? 'text-left' : ''" style="margin-bottom:12px;">
-                    <div 
-                        :style="msg.role === 'user' ? 'background:var(--accent);color:white;' : 'background:var(--bg-hover);'"
-                        style="display:inline-block;padding:8px 12px;border-radius:12px;max-width:85%;font-size:0.85rem;"
-                        x-text="msg.content"
-                    ></div>
+
+        <!-- AI Chat Column (right of TOC) -->
+        <aside class="ai-chat-column" :class="{ 'collapsed': !showAiChat }" @click="!showAiChat && toggleAiChat()">
+            <!-- Collapsed State - Click to expand -->
+            <div class="ai-column-collapsed" x-show="!showAiChat">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <span class="ai-column-label">AI</span>
+            </div>
+
+            <!-- Expanded State -->
+            <template x-if="showAiChat">
+                <div class="ai-column-content">
+                    <!-- AI Header -->
+                    <div class="ai-column-header" style="position: relative;">
+                        <div class="ai-header-title">
+                            <span>محادثة AI</span>
+                            <button class="ai-model-switcher" @click.stop="showModelDropdown = !showModelDropdown" :title="'النموذج: ' + currentModelName">
+                                <span class="ai-model-name" x-text="currentModelShortName"></span>
+                                <svg class="ai-model-chevron" :class="{ 'rotated': showModelDropdown }" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: var(--spacing-xs);">
+                            <button class="ai-header-btn" @click.stop="saveChatToNotes()" title="حفظ المحادثة في الكناشة" x-show="chatMessages.length > 0">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                                </svg>
+                            </button>
+                            <button class="ai-collapse-btn" @click.stop="toggleAiChat()" title="إغلاق (A)">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <!-- Model dropdown -->
+                        <div class="ai-model-dropdown" x-show="showModelDropdown" @click.away="showModelDropdown = false" x-cloak>
+                            <template x-for="model in availableModels" :key="model.id">
+                                <button class="ai-model-option"
+                                        :class="{ 'active': model.id === aiModel }"
+                                        @click="selectAiModel(model.id)">
+                                    <span x-text="model.name"></span>
+                                    <svg x-show="model.id === aiModel" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 16px; height: 16px;">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Chat Messages -->
+                    <div class="ai-messages" x-ref="aiMessages">
+                        <template x-for="(message, index) in chatMessages" :key="index">
+                            <div class="ai-message" :class="message.role">
+                                <div class="ai-message-bubble" x-text="message.content"></div>
+                            </div>
+                        </template>
+                        <div class="ai-loading" x-show="isAiLoading">
+                            <div class="loading-spinner" style="width: 20px; height: 20px;"></div>
+                            <span>جاري التفكير...</span>
+                        </div>
+                        <div class="ai-empty" x-show="chatMessages.length === 0 && !isAiLoading">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="width: 48px; height: 48px; opacity: 0.5;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <span>اسأل عن محتوى الكتاب</span>
+                        </div>
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="ai-input-area">
+                        <input type="text"
+                               class="ai-input"
+                               placeholder="اسأل عن الكتاب..."
+                               x-model="chatInput"
+                               @keyup.enter="sendMessage()"
+                               @click.stop>
+                        <button class="ai-send-btn" @click.stop="sendMessage()">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </template>
-            <div x-show="chatLoading" class="text-muted" style="font-size:0.85rem;">
-                جاري الكتابة...
-            </div>
-        </div>
-        
-        <!-- Chat input -->
-        <div style="padding:12px;border-top:1px solid var(--border-light);">
-            <div class="flex gap-2">
-                <input 
-                    type="text" 
-                    class="form-input" 
-                    placeholder="اسأل عن هذه الصفحة..."
-                    x-model="chatInput"
-                    @keyup.enter="sendChat()"
-                    style="flex:1;"
-                >
-                <button class="btn btn-primary" @click="sendChat()">إرسال</button>
-            </div>
+        </aside>
+    </div>
+
+    <!-- Keyboard Shortcuts Help -->
+    <div class="keyboard-help" x-show="showKeyboardHelp" @click.away="showKeyboardHelp = false" x-cloak>
+        <div style="font-weight: bold; margin-bottom: var(--spacing-md); text-align: center;">اختصارات لوحة المفاتيح</div>
+        <div style="display: grid; gap: var(--spacing-sm); font-size: 14px;">
+            <div style="display: flex; justify-content: space-between;"><span>↑ / ↓</span><span>التمرير</span></div>
+            <div style="display: flex; justify-content: space-between;"><span>Page Up/Down</span><span>تمرير سريع</span></div>
+            <div style="display: flex; justify-content: space-between;"><span>Home</span><span>بداية الكتاب</span></div>
+            <div style="display: flex; justify-content: space-between;"><span>End</span><span>نهاية الكتاب</span></div>
+            <div style="display: flex; justify-content: space-between;"><span>G</span><span>الذهاب إلى صفحة</span></div>
+            <div style="display: flex; justify-content: space-between;"><span>T</span><span>إظهار/إخفاء الفهرس</span></div>
+            <div style="display: flex; justify-content: space-between;"><span>A</span><span>محادثة الذكاء الاصطناعي</span></div>
+            <div style="display: flex; justify-content: space-between;"><span>B</span><span>إضافة للمفضلة</span></div>
+            <div style="display: flex; justify-content: space-between;"><span>Esc</span><span>إغلاق القوائم</span></div>
+            <div style="display: flex; justify-content: space-between;"><span>?</span><span>هذه القائمة</span></div>
         </div>
     </div>
+
+    <!-- Go To Page Modal -->
+    <div class="goto-modal-overlay" x-show="showGotoModal" @click="showGotoModal = false" x-cloak></div>
+    <div class="goto-modal" x-show="showGotoModal" x-cloak>
+        <div class="goto-modal-content">
+            <label>الذهاب إلى صفحة:</label>
+            <input type="number" x-model.number="gotoPageNum" min="1" :max="totalPages" @keyup.enter="gotoPage()" x-ref="gotoInput">
+            <button class="btn btn-primary" @click="gotoPage()">انتقال</button>
+        </div>
+    </div>
+
+    <!-- Text Selection Action Menu -->
+    <div class="selection-menu" x-show="showSelectionMenu" x-cloak
+         :style="'top:' + selectionMenuPos.y + 'px; left:' + selectionMenuPos.x + 'px;'"
+         @click.stop>
+        <button class="selection-menu-btn" @click="copyWithCitation()" title="نسخ مع الإحالة">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span>نسخ مع الإحالة</span>
+        </button>
+        <button class="selection-menu-btn" @click="insertInChat()" title="إضافة للمحادثة" x-show="showAiChat">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <span>إضافة للمحادثة</span>
+        </button>
+        <button class="selection-menu-btn" @click="saveAsNote()" title="حفظ في الكناشة">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="width: 18px; height: 18px;">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+            </svg>
+            <span>حفظ في الكناشة</span>
+        </button>
+    </div>
+
+    <!-- Save Note Toast -->
+    <div class="toast" x-show="showToast" x-cloak x-transition>
+        <span x-text="toastMessage"></span>
+    </div>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function readerApp() {
+function readerPage(bookId) {
     return {
-        book: {
-            id: '{{ book.id if book else "" }}',
-            title: '{{ book.title if book else "عنوان الكتاب" }}',
-            is_owned: false
-        },
-        
+        bookId: bookId,
+        book: { title: '', is_owned: false },
+        pages: [],
         currentPage: 1,
-        totalPages: 100,
-        pageContent: '',
-        loading: true,
-        
+        visiblePage: 1,
+        sliderPage: 1,
+        totalPages: 1,
+        isLoading: true,
+        isLoadingMore: false,
+        hasMorePages: true,
+        sidebarPinned: true,
+        showAiChat: false,
+        showKeyboardHelp: false,
+        showGotoModal: false,
+        gotoPageNum: 1,
+        tocTab: 'contents',
         toc: [],
-        showToc: false,
-        
-        showSettings: false,
-        fontSize: 20,
-        lineHeight: 2,
-        
-        // AI Chat
-        showChat: false,
+        tocLoading: true,
+        currentChapter: '',
         chatMessages: [],
         chatInput: '',
-        chatLoading: false,
-        
+        isAiLoading: false,
+        showModelDropdown: false,
+        aiModel: 'claude-sonnet-4-5',
+        availableModels: [
+            { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', short: 'Claude' },
+            { id: 'claude-opus-4-5', name: 'Claude Opus 4.5', short: 'Opus' },
+            { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', short: 'Haiku' },
+            { id: 'ollama-llama2', name: 'Ollama Llama 2', short: 'Llama 2' },
+            { id: 'ollama-mistral', name: 'Ollama Mistral', short: 'Mistral' }
+        ],
+        bookSearchQuery: '',
+        bookSearchResults: [],
+        favorites: [],
+        readingHistory: [],
+        // Text selection menu
+        showSelectionMenu: false,
+        selectionMenuPos: { x: 0, y: 0 },
+        selectedText: '',
+        showToast: false,
+        toastMessage: '',
+
+        // Lazy loading config
+        pageBuffer: 15, // Reduced for performance
+        loadThreshold: 0.8,
+
+        // Arabic numerals map
+        arabicNumerals: ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'],
+
+        // Computed properties for model display
+        get currentModelShortName() {
+            const model = this.availableModels.find(m => m.id === this.aiModel);
+            return model?.short || 'Select';
+        },
+
+        get currentModelName() {
+            const model = this.availableModels.find(m => m.id === this.aiModel);
+            return model?.name || 'اختر النموذج';
+        },
+
         async init() {
-            // Get page from URL
-            const params = new URLSearchParams(window.location.search);
-            this.currentPage = parseInt(params.get('page')) || 1;
-            
-            // Load settings
-            this.fontSize = parseInt(localStorage.getItem('readerFontSize')) || 20;
-            this.lineHeight = parseFloat(localStorage.getItem('readerLineHeight')) || 2;
-            
-            await this.loadPage();
-            await this.loadToc();
+            // Restore sidebar pinned state from localStorage
+            const savedPinState = localStorage.getItem('granada_sidebar_pinned');
+            if (savedPinState !== null) {
+                this.sidebarPinned = savedPinState === 'true';
+            }
+
+            // Read page parameter from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const pageParam = urlParams.get('page');
+            if (pageParam) {
+                const pageNum = parseInt(pageParam, 10);
+                if (!isNaN(pageNum) && pageNum > 0) {
+                    this.currentPage = pageNum;
+                }
+            }
+
+            // Load AI model setting
+            await this.loadAiModel();
+
+            this.loadFavorites();
+            this.loadHistory();
+
+            // Load book first to get totalPages, then load pages
+            await this.loadBook();
+            await this.loadInitialPages();
+            await this.loadProgress();
+
+            this.setupKeyboardShortcuts();
+            this.setupTextSelection();
+
+            // Set initial chapter
+            this.updateCurrentChapter();
         },
-        
-        async loadPage() {
-            this.loading = true;
+
+        toggleSidebarPin() {
+            this.sidebarPinned = !this.sidebarPinned;
+            localStorage.setItem('granada_sidebar_pinned', this.sidebarPinned.toString());
+        },
+
+        formatVolumePage(page) {
+            // Format as "Volume / Page" in Arabic numerals
+            // Example: ٧ / ٣ means Volume 7, Page 3
+            const volume = page.volume || 1;
+            const originalPage = page.original_page || page.page_num;
+            return `${this.toArabicNumerals(volume)} / ${this.toArabicNumerals(originalPage)}`;
+        },
+
+        getCurrentVolumePage() {
+            // Get volume/page for the currently visible page
+            const currentPage = this.pages.find(p => p.page_num === this.visiblePage);
+            if (currentPage) {
+                return this.formatVolumePage(currentPage);
+            }
+            return this.toArabicNumerals(this.visiblePage);
+        },
+
+        toArabicNumerals(num) {
+            return String(num).split('').map(d => this.arabicNumerals[parseInt(d)] || d).join('');
+        },
+
+        cleanTitle(text) {
+            if (!text) return '';
+            // Remove OpenITI markup: ~~ $ # | etc.
+            return text
+                .replace(/^[\s~$#|0-9\-]+/g, '')
+                .replace(/^#+\s*/g, '')
+                .replace(/\|+/g, '')
+                .replace(/~+/g, '')
+                .replace(/^\s*\d+\s*-?\s*/g, '')
+                .trim();
+        },
+
+        formatPageContent(content) {
+            if (!content) return '';
+
+            let formatted = content;
+
+            // Clean OpenITI markup
+            formatted = formatted
+                .replace(/^#+\s*/gm, '')
+                .replace(/^\|+\s*/gm, '')
+                .replace(/~~/g, '')
+                .replace(/\$\s*/g, '')
+                .replace(/ms\d+/g, '')
+                .replace(/PageV\d+P\d+/g, '');
+
+            // Format hadith numbers [123] -> <span class="hadith-number">[١٢٣]</span>
+            formatted = formatted.replace(/\[(\d+)\]/g, (match, num) => {
+                return `<span class="hadith-number">[${this.toArabicNumerals(num)}]</span>`;
+            });
+
+            // Wrap paragraphs
+            const paragraphs = formatted.split(/\n\s*\n/);
+            formatted = paragraphs
+                .map(p => p.trim())
+                .filter(p => p.length > 0)
+                .map(p => `<p>${p}</p>`)
+                .join('');
+
+            return formatted;
+        },
+
+        async loadBook() {
             try {
-                const response = await fetch(`/api/books/${this.book.id}/pages?page=${this.currentPage}`);
+                const response = await fetch(`/api/books/${this.bookId}`);
                 const data = await response.json();
-                this.pageContent = data.content || '';
-                this.totalPages = data.total_pages || 100;
-                
-                // Save progress
-                this.saveProgress();
+                this.book = data;
+                this.totalPages = data.total_pages || 1;
+                this.sliderPage = this.currentPage;
+
+                // Load TOC after we have book info
+                await this.loadToc();
             } catch (error) {
-                console.error('Failed to load page:', error);
-                // Sample content
-                this.pageContent = `
-                    <p>هذا نص تجريبي للصفحة ${this.currentPage}.</p>
-                    <p>حدثنا عبد الله بن يوسف قال أخبرنا مالك عن نافع عن ابن عمر رضي الله عنهما أن رسول الله صلى الله عليه وسلم قال: "بني الإسلام على خمس: شهادة أن لا إله إلا الله وأن محمدا رسول الله، وإقام الصلاة، وإيتاء الزكاة، والحج، وصوم رمضان".</p>
-                    <p>متفق عليه.</p>
-                `;
-            } finally {
-                this.loading = false;
+                console.error('Failed to load book:', error);
             }
         },
-        
+
         async loadToc() {
+            this.tocLoading = true;
             try {
-                const response = await fetch(`/api/books/${this.book.id}/toc`);
-                const data = await response.json();
-                this.toc = data.toc || [];
+                const response = await fetch(`/api/books/${this.bookId}/toc`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.toc && data.toc.length > 0) {
+                        this.toc = data.toc;
+                        if (this.toc.length > 0) {
+                            this.currentChapter = this.toc[0].title;
+                        }
+                        this.tocLoading = false;
+                        return;
+                    }
+                }
             } catch (error) {
-                // Sample TOC
-                this.toc = [
-                    { title: 'المقدمة', page: 1 },
-                    { title: 'كتاب الإيمان', page: 10 },
-                    { title: 'كتاب العلم', page: 45 },
-                    { title: 'كتاب الوضوء', page: 78 },
-                    { title: 'كتاب الصلاة', page: 120 },
-                ];
+                console.log('TOC API error:', error);
+            }
+
+            // Simple fallback: page markers every 10% of the book
+            // No expensive content parsing
+            if (this.totalPages > 0) {
+                const step = Math.max(1, Math.floor(this.totalPages / 10));
+                for (let i = 1; i <= this.totalPages; i += step) {
+                    this.toc.push({
+                        title: `صفحة ${this.toArabicNumerals(i)}`,
+                        page: i,
+                        expanded: false,
+                        children: []
+                    });
+                }
+            }
+            this.tocLoading = false;
+        },
+
+        async generateTocFromContent() {
+            try {
+                // Load pages to build TOC (limit to first 100 pages for performance)
+                const response = await fetch(`/api/books/${this.bookId}/pages?start=1&end=100`);
+                const data = await response.json();
+
+                console.log('TOC: Loaded', data.pages?.length, 'pages');
+
+                if (!data.pages || data.pages.length === 0) {
+                    this.toc = [];
+                    return;
+                }
+
+                const chapters = [];
+                const maxTocEntries = 200; // Limit TOC entries for performance
+
+                // Debug: sample first page content
+                if (data.pages.length > 0) {
+                    const sample = data.pages[0].content?.substring(0, 500) || '';
+                    console.log('TOC: First page sample:', sample);
+                }
+
+                for (const page of data.pages) {
+                    if (chapters.length >= maxTocEntries) break; // Stop if we have enough entries
+
+                    const content = page.content || '';
+                    const lines = content.split('\n');
+
+                    for (const line of lines) {
+                        if (chapters.length >= maxTocEntries) break;
+                        // Try multiple patterns for structural markers:
+                        // 1. OpenITI format: ### | text or ### |text
+                        // 2. Simple headers: # باب or # كتاب
+                        // 3. Arabic section markers: باب at start of line
+                        let title = null;
+                        let matchType = null;
+
+                        // Pattern 1: OpenITI ### | marker
+                        const openItiMatch = line.match(/^###?\s*\|+\s*(.+)/);
+                        if (openItiMatch) {
+                            title = openItiMatch[1].trim();
+                            matchType = 'openiti';
+                        }
+
+                        // Pattern 2: Simple # header with باب or كتاب
+                        if (!title) {
+                            const headerMatch = line.match(/^#+\s*(باب|كتاب)\s+(.+)/);
+                            if (headerMatch) {
+                                title = headerMatch[1] + ' ' + headerMatch[2].trim();
+                                matchType = 'header';
+                            }
+                        }
+
+                        // Pattern 3: Line starting with باب (common in hadith books)
+                        if (!title) {
+                            const babMatch = line.match(/^(باب)\s+(.{5,})/);
+                            if (babMatch) {
+                                title = babMatch[1] + ' ' + babMatch[2].trim();
+                                matchType = 'bab';
+                            }
+                        }
+
+                        // Pattern 4: Line starting with كتاب (book sections)
+                        if (!title) {
+                            const kitabMatch = line.match(/^(كتاب)\s+(.{3,})/);
+                            if (kitabMatch) {
+                                title = kitabMatch[1] + ' ' + kitabMatch[2].trim();
+                                matchType = 'kitab';
+                            }
+                        }
+
+                        if (!title) continue;
+
+                        // Skip hadith numbers like "1 -" or "123 -"
+                        if (/^\d+\s*-/.test(title)) continue;
+
+                        // Skip page references like "[ص: 7]"
+                        if (/^\[ص:/.test(title)) continue;
+
+                        // Skip bracketed titles (book title, editor notes)
+                        if (title.startsWith('[') && title.endsWith(']')) continue;
+
+                        // Skip empty or very short titles
+                        if (!title || title.length < 3) continue;
+
+                        // Clean up milestone markers and extra markup
+                        title = title.replace(/ms\d+/g, '').trim();
+                        title = title.replace(/#+/g, '').trim();
+                        title = title.replace(/\|+/g, '').trim();
+
+                        // Truncate very long titles
+                        if (title.length > 100) {
+                            title = title.substring(0, 100) + '...';
+                        }
+
+                        // Log first few matches for debugging
+                        if (chapters.length < 5) {
+                            console.log(`TOC: Found ${matchType} marker on page ${page.page_num}: "${title.substring(0, 50)}..."`);
+                        }
+
+                        chapters.push({
+                            title: title,
+                            page: page.page_num,
+                            expanded: false,
+                            children: []
+                        });
+                    }
+                }
+
+                console.log('TOC: Found', chapters.length, 'total chapters');
+
+                // Fallback if no TOC found
+                if (chapters.length === 0) {
+                    console.log('TOC: No chapters found, using page fallback');
+                    const step = Math.max(1, Math.floor(this.totalPages / 10));
+                    for (let i = 1; i <= this.totalPages; i += step) {
+                        chapters.push({
+                            title: `صفحة ${this.toArabicNumerals(i)}`,
+                            page: i,
+                            expanded: false,
+                            children: []
+                        });
+                    }
+                }
+
+                this.toc = chapters;
+
+                if (this.toc.length > 0) {
+                    this.currentChapter = this.toc[0].title;
+                }
+            } catch (error) {
+                console.error('Failed to generate TOC:', error);
+                this.toc = [];
             }
         },
-        
-        goToPage() {
-            if (this.currentPage < 1) this.currentPage = 1;
-            if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
-            this.loadPage();
-            
-            // Update URL
-            const url = new URL(window.location);
-            url.searchParams.set('page', this.currentPage);
-            history.replaceState({}, '', url);
+
+        async loadInitialPages() {
+            this.isLoading = true;
+            const startPage = Math.max(1, this.currentPage - 5);
+            const endPage = Math.min(this.totalPages, this.currentPage + this.pageBuffer);
+
+            await this.loadPageRange(startPage, endPage);
+            this.isLoading = false;
+
+            this.$nextTick(() => {
+                this.scrollToPage(this.currentPage, false);
+                this.updateHasMorePages();
+            });
         },
-        
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.goToPage();
+
+        updateHasMorePages() {
+            if (this.pages.length === 0) {
+                this.hasMorePages = this.totalPages > 1;
+                return;
+            }
+            const lastLoadedPage = Math.max(...this.pages.map(p => p.page_num));
+            this.hasMorePages = lastLoadedPage < this.totalPages;
+        },
+
+        async loadPageRange(start, end) {
+            try {
+                const response = await fetch(`/api/books/${this.bookId}/pages?start=${start}&end=${end}`);
+                const data = await response.json();
+
+                if (data.pages && data.pages.length > 0) {
+                    const existingPageNums = new Set(this.pages.map(p => p.page_num));
+                    const newPages = data.pages.filter(p => !existingPageNums.has(p.page_num));
+
+                    this.pages = [...this.pages, ...newPages].sort((a, b) => a.page_num - b.page_num);
+                    this.updateHasMorePages();
+                }
+            } catch (error) {
+                console.error('Failed to load pages:', error);
             }
         },
-        
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.goToPage();
+
+        async loadMorePages() {
+            if (this.isLoadingMore || !this.hasMorePages) return;
+
+            const lastPage = this.pages.length > 0 ? Math.max(...this.pages.map(p => p.page_num)) : 0;
+            if (lastPage >= this.totalPages) {
+                this.hasMorePages = false;
+                return;
+            }
+
+            this.isLoadingMore = true;
+            const start = lastPage + 1;
+            const end = Math.min(this.totalPages, lastPage + this.pageBuffer);
+
+            await this.loadPageRange(start, end);
+            this.isLoadingMore = false;
+        },
+
+        handleScroll() {
+            const container = this.$refs.scrollContainer;
+            if (!container) return;
+
+            const pageBlocks = container.querySelectorAll('.reader-page-block');
+            let foundPage = this.visiblePage;
+
+            for (const block of pageBlocks) {
+                const rect = block.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+
+                if (rect.top <= containerRect.top + 100 && rect.bottom > containerRect.top) {
+                    foundPage = parseInt(block.dataset.page, 10);
+                }
+            }
+
+            if (foundPage !== this.visiblePage) {
+                this.visiblePage = foundPage;
+                this.sliderPage = foundPage;
+                this.saveProgress();
+                this.addToHistory(foundPage);
+                this.updateCurrentChapter();
+            }
+
+            const scrollHeight = container.scrollHeight;
+            const scrollTop = container.scrollTop;
+            const clientHeight = container.clientHeight;
+            const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
+
+            if (scrollPercentage > this.loadThreshold && this.hasMorePages) {
+                this.loadMorePages();
             }
         },
-        
-        saveProgress() {
-            // Save to localStorage
-            const progress = JSON.parse(localStorage.getItem('readingProgress') || '{}');
-            progress[this.book.id] = {
-                page: this.currentPage,
-                total: this.totalPages,
+
+        scrollToPage(pageNum, smooth = true) {
+            const container = this.$refs.scrollContainer;
+            if (!container) return;
+
+            const pageBlock = container.querySelector(`[data-page="${pageNum}"]`);
+            if (pageBlock) {
+                pageBlock.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+            }
+        },
+
+        onSliderInput() {
+            this.visiblePage = this.sliderPage;
+        },
+
+        async onSliderChange() {
+            const targetPage = parseInt(this.sliderPage, 10);
+            const pageExists = this.pages.some(p => p.page_num === targetPage);
+
+            if (!pageExists) {
+                this.isLoading = true;
+                const start = Math.max(1, targetPage - 10);
+                const end = Math.min(this.totalPages, targetPage + this.pageBuffer);
+                await this.loadPageRange(start, end);
+                this.isLoading = false;
+            }
+
+            this.$nextTick(() => {
+                this.scrollToPage(targetPage);
+                this.updateCurrentChapter();
+            });
+        },
+
+        updateCurrentChapter() {
+            if (this.toc.length === 0) return;
+
+            let foundChapter = this.toc[0].title;
+
+            for (const item of this.toc) {
+                if (this.visiblePage >= item.page) {
+                    foundChapter = item.title;
+
+                    if (item.children && item.children.length > 0) {
+                        for (const child of item.children) {
+                            if (this.visiblePage >= child.page) {
+                                foundChapter = child.title;
+                            }
+                        }
+                    }
+                }
+            }
+
+            this.currentChapter = foundChapter;
+        },
+
+        isChapterActive(item) {
+            const idx = this.toc.indexOf(item);
+            const nextItem = this.toc[idx + 1];
+            const endPage = nextItem ? nextItem.page - 1 : this.totalPages;
+
+            return this.visiblePage >= item.page && this.visiblePage <= endPage;
+        },
+
+        goToTocItem(item) {
+            this.sliderPage = item.page;
+            this.onSliderChange();
+        },
+
+        async loadProgress() {
+            try {
+                const response = await fetch(`/api/progress/${this.bookId}`);
+                const data = await response.json();
+                if (data.current_page && this.currentPage === 1) {
+                    this.currentPage = data.current_page;
+                    this.visiblePage = data.current_page;
+                    this.sliderPage = data.current_page;
+                    await this.onSliderChange();
+                }
+            } catch (error) {
+                console.error('Failed to load progress:', error);
+            }
+        },
+
+        async saveProgress() {
+            try {
+                await fetch(`/api/progress/${this.bookId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_page: this.visiblePage,
+                        is_complete: this.visiblePage >= this.totalPages
+                    })
+                });
+            } catch (error) {
+                console.error('Failed to save progress:', error);
+            }
+        },
+
+        setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+                switch(e.key) {
+                    case 'Home':
+                        this.sliderPage = 1;
+                        this.onSliderChange();
+                        e.preventDefault();
+                        break;
+                    case 'End':
+                        this.sliderPage = this.totalPages;
+                        this.onSliderChange();
+                        e.preventDefault();
+                        break;
+                    case 't':
+                    case 'T':
+                        this.toggleSidebarPin();
+                        e.preventDefault();
+                        break;
+                    case 'a':
+                    case 'A':
+                        this.toggleAiChat();
+                        e.preventDefault();
+                        break;
+                    case 'g':
+                    case 'G':
+                        this.showGotoModal = true;
+                        this.gotoPageNum = this.visiblePage;
+                        this.$nextTick(() => {
+                            this.$refs.gotoInput?.focus();
+                        });
+                        e.preventDefault();
+                        break;
+                    case 'b':
+                    case 'B':
+                        this.addToFavorites();
+                        e.preventDefault();
+                        break;
+                    case '?':
+                        this.showKeyboardHelp = !this.showKeyboardHelp;
+                        e.preventDefault();
+                        break;
+                    case 'Escape':
+                        this.showAiChat = false;
+                        this.showKeyboardHelp = false;
+                        this.showGotoModal = false;
+                        break;
+                }
+            });
+        },
+
+        gotoPage() {
+            if (this.gotoPageNum >= 1 && this.gotoPageNum <= this.totalPages) {
+                this.sliderPage = this.gotoPageNum;
+                this.onSliderChange();
+                this.showGotoModal = false;
+            }
+        },
+
+        goBack() {
+            window.history.back();
+        },
+
+        toggleAiChat() {
+            this.showAiChat = !this.showAiChat;
+            this.showKeyboardHelp = false;
+        },
+
+        async toggleOwned() {
+            try {
+                await fetch(`/api/books/${this.bookId}/ownership`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_owned: this.book.is_owned })
+                });
+            } catch (error) {
+                console.error('Failed to update ownership:', error);
+            }
+        },
+
+        async searchInBook() {
+            if (!this.bookSearchQuery.trim()) return;
+
+            try {
+                const response = await fetch(`/api/books/${this.bookId}/search?q=${encodeURIComponent(this.bookSearchQuery)}`);
+                const data = await response.json();
+                this.bookSearchResults = data.results || [];
+            } catch (error) {
+                console.error('Search error:', error);
+                this.bookSearchResults = [];
+            }
+        },
+
+        goToSearchResult(result) {
+            this.sliderPage = result.page;
+            this.onSliderChange();
+        },
+
+        loadFavorites() {
+            const stored = localStorage.getItem(`granada_favorites_${this.bookId}`);
+            if (stored) {
+                this.favorites = JSON.parse(stored);
+            }
+        },
+
+        saveFavorites() {
+            localStorage.setItem(`granada_favorites_${this.bookId}`, JSON.stringify(this.favorites));
+        },
+
+        addToFavorites() {
+            const currentPageData = this.pages.find(p => p.page_num === this.visiblePage);
+            if (!currentPageData) return;
+
+            const cleanContent = this.cleanTitle(currentPageData.content);
+            const excerpt = cleanContent.substring(0, 100) + '...';
+
+            if (this.favorites.some(f => f.page === this.visiblePage)) return;
+
+            this.favorites.push({
+                page: this.visiblePage,
+                excerpt: excerpt,
                 timestamp: Date.now()
-            };
-            localStorage.setItem('readingProgress', JSON.stringify(progress));
-            
-            // Save font settings
-            localStorage.setItem('readerFontSize', this.fontSize);
-            localStorage.setItem('readerLineHeight', this.lineHeight);
+            });
+            this.saveFavorites();
         },
-        
-        async sendChat() {
+
+        removeFavorite(index) {
+            this.favorites.splice(index, 1);
+            this.saveFavorites();
+        },
+
+        goToFavorite(fav) {
+            this.sliderPage = fav.page;
+            this.onSliderChange();
+        },
+
+        loadHistory() {
+            const stored = localStorage.getItem(`granada_history_${this.bookId}`);
+            if (stored) {
+                this.readingHistory = JSON.parse(stored);
+            }
+        },
+
+        saveHistory() {
+            this.readingHistory = this.readingHistory.slice(-20);
+            localStorage.setItem(`granada_history_${this.bookId}`, JSON.stringify(this.readingHistory));
+        },
+
+        addToHistory(page) {
+            if (this.readingHistory.length > 0 && this.readingHistory[this.readingHistory.length - 1].page === page) {
+                return;
+            }
+
+            this.readingHistory.push({
+                page: page,
+                time: Date.now()
+            });
+            this.saveHistory();
+        },
+
+        goToHistory(hist) {
+            this.sliderPage = hist.page;
+            this.onSliderChange();
+        },
+
+        formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+
+            if (diff < 60000) return 'الآن';
+            if (diff < 3600000) return `منذ ${Math.floor(diff / 60000)} دقيقة`;
+            if (diff < 86400000) return `منذ ${Math.floor(diff / 3600000)} ساعة`;
+            return date.toLocaleDateString('ar');
+        },
+
+        async loadAiModel() {
+            try {
+                const response = await fetch('/api/settings');
+                const data = await response.json();
+                if (data.ai_model) {
+                    this.aiModel = data.ai_model;
+                }
+            } catch (error) {
+                console.error('Failed to load AI model setting:', error);
+            }
+        },
+
+        async selectAiModel(modelId) {
+            this.aiModel = modelId;
+            this.showModelDropdown = false;
+
+            try {
+                // Load current settings first
+                const response = await fetch('/api/settings');
+                const settings = await response.json();
+
+                // Update the ai_model
+                settings.ai_model = modelId;
+
+                // Save updated settings
+                await fetch('/api/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+            } catch (error) {
+                console.error('Failed to save AI model setting:', error);
+            }
+        },
+
+        scrollAiToBottom() {
+            this.$nextTick(() => {
+                const container = this.$refs.aiMessages;
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            });
+        },
+
+        async sendMessage() {
             if (!this.chatInput.trim()) return;
-            
+
             const userMessage = this.chatInput;
             this.chatMessages.push({ role: 'user', content: userMessage });
             this.chatInput = '';
-            this.chatLoading = true;
-            
+            this.isAiLoading = true;
+            this.scrollAiToBottom();
+
+            const currentPageData = this.pages.find(p => p.page_num === this.visiblePage);
+
             try {
-                const response = await fetch('/api/chat', {
+                const response = await fetch('/api/ai/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: userMessage,
-                        book_id: this.book.id,
-                        page: this.currentPage,
-                        context: this.pageContent
+                        book_id: this.bookId,
+                        page_content: currentPageData?.content || '',
+                        book_title: this.book.title
                     })
                 });
+
                 const data = await response.json();
-                this.chatMessages.push({ role: 'assistant', content: data.response });
+
+                if (data.error) {
+                    this.chatMessages.push({
+                        role: 'assistant',
+                        content: data.error
+                    });
+                } else {
+                    this.chatMessages.push({
+                        role: 'assistant',
+                        content: data.response || 'لم أتمكن من الإجابة.'
+                    });
+                }
+                this.scrollAiToBottom();
             } catch (error) {
-                console.error('Chat failed:', error);
-                this.chatMessages.push({ 
-                    role: 'assistant', 
-                    content: 'عذرًا، حدث خطأ. تأكد من تفعيل الذكاء الاصطناعي في الإعدادات.' 
+                console.error('AI chat error:', error);
+                this.chatMessages.push({
+                    role: 'assistant',
+                    content: 'حدث خطأ في الاتصال. يرجى المحاولة مرة أخرى.'
                 });
+                this.scrollAiToBottom();
             } finally {
-                this.chatLoading = false;
+                this.isAiLoading = false;
+            }
+        },
+
+        // Text selection handling
+        setupTextSelection() {
+            const contentArea = document.querySelector('.book-content-area');
+            if (!contentArea) return;
+
+            // Hide menu on click outside
+            document.addEventListener('click', () => {
+                this.showSelectionMenu = false;
+            });
+
+            // Show menu on text selection
+            contentArea.addEventListener('mouseup', (e) => {
+                setTimeout(() => {
+                    const selection = window.getSelection();
+                    const text = selection.toString().trim();
+
+                    if (text.length > 0) {
+                        this.selectedText = text;
+
+                        // Position menu near selection
+                        const range = selection.getRangeAt(0);
+                        const rect = range.getBoundingClientRect();
+
+                        // Position above the selection
+                        this.selectionMenuPos = {
+                            x: rect.left + (rect.width / 2) - 100, // Center horizontally
+                            y: rect.top - 50 + window.scrollY // Above the selection
+                        };
+
+                        // Ensure menu stays within viewport
+                        if (this.selectionMenuPos.x < 10) this.selectionMenuPos.x = 10;
+                        if (this.selectionMenuPos.y < 10) this.selectionMenuPos.y = rect.bottom + 10 + window.scrollY;
+
+                        this.showSelectionMenu = true;
+                    } else {
+                        this.showSelectionMenu = false;
+                    }
+                }, 10);
+            });
+        },
+
+        getAuthorName() {
+            // Get author name from book data
+            return this.book.author?.name || this.book.author || 'مؤلف غير معروف';
+        },
+
+        getCitation() {
+            // APA-style citation: "[text]" (Author, Title, p. Page#)
+            const author = this.getAuthorName();
+            const title = this.book.title || 'كتاب غير معروف';
+            const page = this.visiblePage;
+
+            return `"${this.selectedText}" (${author}، ${title}، ص. ${page}).`;
+        },
+
+        async copyWithCitation() {
+            const citation = this.getCitation();
+
+            try {
+                await navigator.clipboard.writeText(citation);
+                this.showToastMessage('تم نسخ الاقتباس');
+            } catch (error) {
+                console.error('Failed to copy:', error);
+                // Fallback for browsers that don't support clipboard API
+                const textarea = document.createElement('textarea');
+                textarea.value = citation;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                this.showToastMessage('تم نسخ الاقتباس');
+            }
+
+            this.showSelectionMenu = false;
+            window.getSelection().removeAllRanges();
+        },
+
+        insertInChat() {
+            // Insert citation into AI chat input
+            const citation = this.getCitation();
+            this.chatInput = citation + '\n\n';
+            this.showSelectionMenu = false;
+            window.getSelection().removeAllRanges();
+
+            // Open AI chat if not open
+            if (!this.showAiChat) {
+                this.showAiChat = true;
+            }
+
+            // Focus the chat input
+            this.$nextTick(() => {
+                const input = document.querySelector('.ai-input');
+                if (input) input.focus();
+            });
+        },
+
+        async saveAsNote() {
+            if (!this.selectedText) return;
+
+            const sourceRef = {
+                book_id: this.bookId,
+                book_title: this.book.title,
+                author: this.getAuthorName(),
+                page_num: this.visiblePage,
+                highlighted_text: this.selectedText
+            };
+
+            try {
+                const response = await fetch('/api/notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: `"${this.selectedText}"\n\n— ${this.book.title}، ص. ${this.visiblePage}`,
+                        source_type: 'highlight',
+                        source_ref: sourceRef
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    this.showToastMessage('تم حفظ الفائدة');
+                } else {
+                    this.showToastMessage(data.error || 'حدث خطأ');
+                }
+            } catch (error) {
+                console.error('Failed to save note:', error);
+                this.showToastMessage('حدث خطأ في حفظ الفائدة');
+            }
+
+            this.showSelectionMenu = false;
+            window.getSelection().removeAllRanges();
+        },
+
+        showToastMessage(message) {
+            this.toastMessage = message;
+            this.showToast = true;
+            setTimeout(() => {
+                this.showToast = false;
+            }, 2500);
+        },
+
+        async saveChatToNotes() {
+            if (this.chatMessages.length === 0) return;
+
+            // Format conversation
+            let content = `محادثة AI - ${this.book.title}\n`;
+            content += `الصفحة: ${this.visiblePage}\n`;
+            content += `التاريخ: ${new Date().toLocaleDateString('ar')}\n`;
+            content += '—'.repeat(20) + '\n\n';
+
+            for (const msg of this.chatMessages) {
+                const role = msg.role === 'user' ? 'أنا' : 'AI';
+                content += `${role}:\n${msg.content}\n\n`;
+            }
+
+            const sourceRef = {
+                book_id: this.bookId,
+                book_title: this.book.title,
+                page_num: this.visiblePage,
+                model: this.currentModelName,
+                message_count: this.chatMessages.length
+            };
+
+            try {
+                const response = await fetch('/api/notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: content,
+                        source_type: 'ai_chat',
+                        source_ref: sourceRef
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    this.showToastMessage('تم حفظ المحادثة في الكناشة');
+                } else {
+                    this.showToastMessage(data.error || 'حدث خطأ');
+                }
+            } catch (error) {
+                console.error('Failed to save chat:', error);
+                this.showToastMessage('حدث خطأ في حفظ المحادثة');
             }
         }
     };
